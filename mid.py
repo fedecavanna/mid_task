@@ -1,16 +1,18 @@
-metadata dia hora ENOTCONN
-quitar seed
-gain acc debe restar no solo sumar
+# agregar señalización al eeg
 
 import random
 from psychopy import visual, core, event, gui
+from pylsl import StreamInfo, StreamOutlet
 
 class MonetaryIncentiveDelayTask:
+    smarting_info = StreamInfo(name='learning', type='Markers', channel_count=1, channel_format='int32', source_id='learning_00')
+    smarting_outlet = StreamOutlet(smarting_info)
 
     def populate_trial_data(self, n_trials, proba):
         # genero los datos con un seed fijo
-        seed_value = 42 
-        random.seed(seed_value)
+        seed_value = -1 
+        if (seed_value > 0):            
+            random.seed(seed_value)
         
         # defino la ocurrencia de cada box acorde a las probabilidades dadas
         options = [0, 1]
@@ -58,6 +60,15 @@ class MonetaryIncentiveDelayTask:
         self.save_results() 
 
     def run_trial(self, cond, trial_n, trial_reward):
+        
+        # Manejo el contador con el resultado total de ganancias-pérdidas:
+        def calc_result(self, hit): 
+            # obtengo el last count
+            n = self.trial_data[-1][6] if len(self.trial_data) > 0 else 0
+            # evalúo si agrego o resto y devuelvo
+            res = n+1 if hit == 1 else n-1 
+            return res
+        
         # creo la cruz de fijación
         self.fixation_cross.draw()
         self.win.flip()
@@ -74,7 +85,7 @@ class MonetaryIncentiveDelayTask:
 
         # evalúo si le pegaron al box
         selected_square = ['left', 'down', 'right'].index(keys[0]) # devuelve 0, 1, 2
-        hit = trial_reward[selected_square] == 1 
+        hit = trial_reward[selected_square]
         result_text = '+1' if hit else '-1'
 
         # muestro el feedback
@@ -89,9 +100,9 @@ class MonetaryIncentiveDelayTask:
 
         # acumulo el resultado
         latency = int((core.getTime() - start_time) * 1000)
-        gain_acc = self.trial_data[-1][6] + int(hit) if len(self.trial_data) > 0 else int(hit)
-        streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and hit else int(hit) 
-        self.trial_data.append([cond, trial_n, trial_reward, latency, selected_square, int(hit), gain_acc, streak])
+        result = calc_result(self, hit)
+        streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and bool(hit) else hit 
+        self.trial_data.append([cond, trial_n, trial_reward, latency, selected_square, hit, result, streak])
 
     def create_squares(self):
         squares = []
@@ -107,7 +118,7 @@ class MonetaryIncentiveDelayTask:
 
     def save_results(self):
         with open(self.results_file, 'w') as f:
-            f.write("cond;trial_n;trial_setup;latency_ms;selection;hit;gain_acc;streak\n")
+            f.write("cond;trial_n;trial_setup;latency_ms;selection;hit;result;streak\n")
             for i, data in enumerate(self.trial_data):
                 f.write(f"{data[0]};{data[1]};{data[2]};{data[3]};{data[4]};{data[5]};{data[6]};{data[7]}\n")
 
