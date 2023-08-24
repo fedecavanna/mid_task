@@ -5,9 +5,6 @@ from psychopy import visual, core, event, gui
 from pylsl import StreamInfo, StreamOutlet
 
 class MonetaryIncentiveDelayTask:
-    smarting_info = StreamInfo(name='learning', type='Markers', channel_count=1, channel_format='int32', source_id='learning_00')
-    smarting_outlet = StreamOutlet(smarting_info)
-
     def populate_trial_data(self, n_trials, proba):
         # genero los datos con un seed fijo
         seed_value = -1 
@@ -28,6 +25,11 @@ class MonetaryIncentiveDelayTask:
         return result
 
     def __init__(self, subject_id):     
+        # https://pypi.org/project/pylsl/
+        self.info = StreamInfo(name='MarkerStream', type='Markers', channel_count=1, 
+                                channel_format='string', source_id='myuidw43536')
+        self.outlet = StreamOutlet(self.info)
+        
         # defino el reward de los cofres:
         self.trials = 10
         self.learn_trial = self.populate_trial_data(self.trials, [[0.8, 0.2], [0.5, 0.5], [0.2, 0.8]])
@@ -51,12 +53,13 @@ class MonetaryIncentiveDelayTask:
         event.waitKeys()
 
     def run(self):
+        self.outlet.push_sample('experiment_start') # EEG marker
         iti = 1 # intervalo entre trials (segundos)
         self.show_instructions()
         for i in range(self.trials):
             self.run_trial('learn', i+1, self.learn_trial[i]) # paso como parámetro el reward ya estimado de cada trial
             core.wait(iti)
-            
+        self.outlet.push_sample('experiment_end') # EEG marker
         self.save_results() 
 
     def run_trial(self, cond, trial_n, trial_reward):
@@ -69,9 +72,12 @@ class MonetaryIncentiveDelayTask:
             res = n+1 if hit == 1 else n-1 
             return res
         
+        self.outlet.push_sample('trial_start') # EEG marker
+        
         # creo la cruz de fijación
         self.fixation_cross.draw()
         self.win.flip()
+        self.outlet.push_sample('fixation_shown') # EEG marker
         core.wait(1) 
         
         # creo los cuadrados
@@ -81,6 +87,8 @@ class MonetaryIncentiveDelayTask:
         while True:
             keys = event.waitKeys(keyList=['left', 'down', 'right'])
             if keys[0] in ['left', 'down', 'right']:
+                latency = int((core.getTime() - start_time) * 1000)
+                self.outlet.push_sample('key_pressed') # EEG marker
                 break
 
         # evalúo si le pegaron al box
@@ -96,14 +104,17 @@ class MonetaryIncentiveDelayTask:
         feedback = visual.TextStim(self.win, text=result_text, color=color, height=0.1)
         feedback.draw()
         self.win.flip()
+        self.outlet.push_sample('feedback_shown') # EEG marker
         core.wait(1)
 
         # acumulo el resultado
-        latency = int((core.getTime() - start_time) * 1000)
         result = calc_result(self, hit)
         streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and bool(hit) else hit 
         self.trial_data.append([cond, trial_n, trial_reward, latency, selected_square, hit, result, streak])
-
+        trial_data_str = ', '.join(self.trial_data)
+                       
+        self.outlet.push_sample(trial_data_str) # EEG marker 
+        self.outlet.push_sample('trial_end') # EEG marker 
     def create_squares(self):
         squares = []
         for i in range(3):
