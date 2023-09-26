@@ -17,7 +17,7 @@ python mid.py
 ```
 You will be prompted to enter the Subject ID. Once you have entered it, the task will begin.
 
-## Data
+## Output data
 
 The task will save the results to a file called 'results/{subject_id}.txt'. 
 To date, this file will contain the following columns:
@@ -31,7 +31,7 @@ To date, this file will contain the following columns:
 * result: The subject's total earnings after the trial
 * streak: The subject's current streak of correct selections
 
-## EEG
+## EEG markers
 
 The task can also be used to record EEG data. To do this, you will need to connect an EEG device to your computer and use a recorder before running the task.
 
