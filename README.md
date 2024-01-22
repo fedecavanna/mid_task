@@ -46,3 +46,6 @@ To date, the task will stream the following EEG markers:
 
 You can use these markers to align your EEG data with the task events.
  
+## Notes
+Stimuli presentation and timing:
+https://www.psychopy.org/coder/codeStimuli.html

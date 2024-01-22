@@ -2,6 +2,7 @@
 import random
 from psychopy import visual, core, event, gui
 from pylsl import StreamInfo, StreamOutlet
+from PIL import Image
 
 class MonetaryIncentiveDelayTask:
 
@@ -20,7 +21,9 @@ class MonetaryIncentiveDelayTask:
         self.reverse_trial = self.populate_trial_data(self.n_trials, [[0.2, 0.8], [0.5, 0.5], [0.8, 0.2]]) # left box > right box       
         
         # Define visual variables:
-        self.win = visual.Window(fullscr=True, allowGUI=False, color='gainsboro', monitor='2', screen=1) # white
+        self.win = visual.Window(fullscr=True, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
+        self.win_eeg_markers = visual.Window(size=(800, 600), color='black', units='pix') # eeg markers window        
+        self.clock = core.Clock() # clock for timing the markers
         self.fixation_cross = visual.TextStim(self.win, text='+', color='black', height=0.1)
         self.square_size = 0.2
         self.square_colors = ['gray', 'gray', 'gray']
@@ -28,6 +31,26 @@ class MonetaryIncentiveDelayTask:
         # Define storage variables:
         self.trial_data = []
         self.results_file = f"results/{subject_id}.txt"
+
+    def send_eeg_marker(self):        
+        colors = ['red', 'black']
+        # 60 Hz monitor = 1/60 = 0.0167 seconds per frame
+        duration = 0.0167 * 4 # Flash for n frames
+
+        # Flash red for 'duration'
+        while self.clock.getTime() < duration:
+            for color in colors:
+                self.win_eeg_markers.color = color
+                self.win_eeg_markers.flip()
+                
+                # I'll exit the loop once duration is reached
+                if self.clock.getTime() >= duration:
+                    break
+
+        # Then go back to black again.
+        self.win_eeg_markers.color = 'black'
+        self.win_eeg_markers.flip()
+
 
     def populate_trial_data(self, n_trials, proba):
         # Fixed seed for replication purposes
@@ -57,7 +80,19 @@ class MonetaryIncentiveDelayTask:
 
     def run(self):
         self.outlet.push_sample(['experiment_start']) # EEG marker
-        self.show_text('Instrucciones.\n\nPresioná cualquier tecla para comenzar el experimento.')
+        self.show_text('¡Bienvenidx! Por favor leé con atención las instrucciones para llevar a cabo el experimento.\n\n\n\n'
+                        'La tarea que estás por realizar consta de varios ensayos, que se darán de la siguiente manera:\n\n'
+                        '* Aparecerán tres cofres en pantalla. Cada uno tiene una recompensa diferente.\n\n'
+                        '* Abrí el cofre que prefieras presionando una de las teclas (izquierda, abajo o derecha).\n\n'                       
+                        '* Tras abrir el cofre te mostraremos el resultado de tu elección (0, +1, -1 moneda).\n\n'                       
+                        '* Luego, cuando estés listo, deberás presionar ¨Continuar" para de esta forma volver a comenzar el siguiente ensayo.\n\n\n\n'
+                        '¡El objetivo de la tarea es obtener la mayor cantidad de monedas posibles!\n\n'
+                        'La duración total del experimento puede variar.\n\n'
+                        'Se registrarán marcadores de EEG durante todo el experimento, por lo cual evitá moverte y en lo posible evitá pestañear a no ser que estés en el final del ensayo (antes de presionar ¨Continuar¨).\n\n'
+                        'Si tenés alguna duda podés preguntarnos ahora ya que durante la tarea no habrá interacción con los investigadores.\n\n'
+                        '¡Gracias por participar en nuestro experimento!\n\n\n\n'
+                        'Presiona cualquier tecla para comenzar.')
+
         
         for i in range(self.n_trials):
             self.run_trial('learn', i+1, self.learn_trial[i]) # Pass the estimated reward of each trial as a parameter
@@ -143,7 +178,8 @@ class MonetaryIncentiveDelayTask:
         # Clear the screen 
         core.wait(iti_time)
         self.show_text('Continuar')
-        
+     
+    """
     def create_squares(self):
         squares = []
         for i in range(3):
@@ -155,6 +191,24 @@ class MonetaryIncentiveDelayTask:
             square.draw()
 
         return squares
+    """
+    
+    def create_squares(self):
+        chests = []
+
+        for i in enumerate(2):
+            # Cargar la imagen usando Pillow
+            image = Image.open('assets/chest_1.png')
+
+            # Crear el estímulo visual con la imagen
+            chest = visual.ImageStim(self.win, image=image, size=self.square_size)
+            chest.pos = ((i - 1) * 0.6, 0)
+            chests.append(chest)
+
+        for chest in chests:
+            chest.draw()
+
+        return chests
 
     def save_results(self):
         with open(self.results_file, 'w') as f:
