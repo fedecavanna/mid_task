@@ -8,7 +8,7 @@ class MonetaryIncentiveDelayTask:
 
     def __init__(self, subject_id):     
         # Create an LSL stream for sending markers
-        self.info = StreamInfo(name='MarkerStream', type='Markers', channel_count=1, 
+        self.info = StreamInfo(name='MarkerStream', type='Markers', channel_count=1,  
                                 channel_format='string', source_id='myuidw43536')
         self.outlet = StreamOutlet(self.info)
         
@@ -24,7 +24,7 @@ class MonetaryIncentiveDelayTask:
         self.win = visual.Window(fullscr=True, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
         self.win_eeg_markers = visual.Window(size=(800, 600), color='black', units='pix') # eeg markers window        
         self.clock = core.Clock() # clock for timing the markers
-        self.fixation_cross = visual.TextStim(self.win, text='+', color='black', height=0.1)
+        self.fixation_cross = visual.TextStim(self.win, text='+', color='black', height=0.2)
         self.square_size = 0.2
         self.square_colors = ['gray', 'gray', 'gray']
         
@@ -106,10 +106,9 @@ class MonetaryIncentiveDelayTask:
         # Each trial is performed as follows
         # [fixation_stimuli + stimuli] [gap] [fixation_result + result] [iti]
         
-        fixtime_stimuli = 2 # Time for the fixation cross pre stimuli. 
-        fixtime_result = 4 # Time for the fixation cross pre results.
-        gap_time = 0 # Time between stimuli and result blocks
-        iti_time = 2 # Interval between trials
+        fixation_time = 1.5 # Time for the fixation cross. 
+        result_time = 1.5 # Time for the result to be shown
+        iti_time = 1.5 # Interval between trials
         
         # Handle the counter for the total gain-loss result:
         def calc_result(self, hit): 
@@ -126,7 +125,7 @@ class MonetaryIncentiveDelayTask:
         self.fixation_cross.draw()
         self.win.flip()
         self.outlet.push_sample(['stimuli_fixation_shown']) # EEG marker
-        core.wait(fixtime_stimuli) 
+        core.wait(fixation_time) 
         
         # Create the squares
         self.create_squares()
@@ -142,7 +141,6 @@ class MonetaryIncentiveDelayTask:
         ## GAP BLOCK
         # Clear the screen 
         self.win.flip()
-        core.wait(gap_time) 
 
         # Check if they hit the box
         selected_square = ['left', 'down', 'right'].index(keys[0]) # returns 0, 1, 2
@@ -154,16 +152,17 @@ class MonetaryIncentiveDelayTask:
         self.fixation_cross.draw()
         self.win.flip()
         self.outlet.push_sample(['result_fixation_shown']) # EEG marker
-        core.wait(fixtime_result) 
+        core.wait(fixation_time) 
 
         # Show feedback
         color = 'red'
         if result_text == '+1':
             color = 'green'
-        feedback = visual.TextStim(self.win, text=result_text, color=color, height=0.3, bold=True)
+        feedback = visual.TextStim(self.win, text=result_text, color=color, height=0.2, bold=True)
         feedback.draw()
         self.win.flip()
         self.outlet.push_sample(['feedback_shown']) # EEG marker
+        core.wait(result_time)
 
         # Accumulate the result
         result = calc_result(self, hit)
@@ -177,7 +176,8 @@ class MonetaryIncentiveDelayTask:
         ## ITI BLOCK
         # Clear the screen 
         core.wait(iti_time)
-        self.show_text('Continuar')
+        if (trial_n in [20, 40]):
+            self.show_text('Continuar')
      
     """
     def create_squares(self):
@@ -196,12 +196,12 @@ class MonetaryIncentiveDelayTask:
     def create_squares(self):
         chests = []
 
-        for i in enumerate(2):
+        for i in range(3):
             # Cargar la imagen usando Pillow
-            image = Image.open('assets/chest_1.png')
+            image = Image.open('assets/chest_2.png')
 
             # Crear el estímulo visual con la imagen
-            chest = visual.ImageStim(self.win, image=image, size=self.square_size)
+            chest = visual.ImageStim(self.win, image=image, size=self.square_size*1.5)
             chest.pos = ((i - 1) * 0.6, 0)
             chests.append(chest)
 
