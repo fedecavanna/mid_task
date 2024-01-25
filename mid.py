@@ -13,7 +13,7 @@ class MonetaryIncentiveDelayTask:
         self.outlet = StreamOutlet(self.info)
         
         # Number of trials for each condition:
-        self.n_trials = 10
+        self.n_trials = 40
         
         # Define the reward for the chests:
         # Each number in the probability set eg [0.8, 0.2] is the chance for each option [0, 1].
@@ -25,13 +25,11 @@ class MonetaryIncentiveDelayTask:
         self.win_eeg_markers = visual.Window(size=(800, 600), color='black', units='pix') # eeg markers window        
         self.clock = core.Clock() # clock for timing the markers
         self.fixation_cross = visual.TextStim(self.win, text='+', color='black', height=0.2)
-        self.square_size = 0.2
-        self.square_colors = ['gray', 'gray', 'gray']
         
         # Define storage variables:
         self.trial_data = []
         self.results_file = f"results/{subject_id}.txt"
-
+            
     def send_eeg_marker(self):        
         colors = ['red', 'black']
         # 60 Hz monitor = 1/60 = 0.0167 seconds per frame
@@ -107,6 +105,7 @@ class MonetaryIncentiveDelayTask:
         # [fixation_stimuli + stimuli] [gap] [fixation_result + result] [iti]
         
         fixation_time = 1.5 # Time for the fixation cross. 
+        soa_time = random.uniform(1, 4) # Time before the result is shown
         result_time = 1.5 # Time for the result to be shown
         iti_time = 1.5 # Interval between trials
         
@@ -132,18 +131,20 @@ class MonetaryIncentiveDelayTask:
         self.win.flip()
         start_time = core.getTime()
         while True:
-            keys = event.waitKeys(keyList=['left', 'down', 'right'])
-            if keys[0] in ['left', 'down', 'right']:
+            keys = event.waitKeys(keyList=['left', 'down', 'right', 'escape'])
+            if keys[0] == 'escape':
+                core.quit()            
+            elif keys[0] in ['left', 'down', 'right']:
                 latency = int((core.getTime() - start_time) * 1000)
-                self.outlet.push_sample(['key_pressed']) # EEG marker
+                self.outlet.push_sample(['key_presse d']) # EEG marker
                 break
-
+                
         ## GAP BLOCK
         # Clear the screen 
         self.win.flip()
 
         # Check if they hit the box
-        selected_square = ['left', 'down', 'right'].index(keys[0]) # returns 0, 1, 2
+        selected_square = ['left', 'down', 'right'].index(keys[0]) # returns 0, 1, 2            
         hit = trial_reward[selected_square]
         result_text = '+1' if hit else '-1'
 
@@ -152,7 +153,7 @@ class MonetaryIncentiveDelayTask:
         self.fixation_cross.draw()
         self.win.flip()
         self.outlet.push_sample(['result_fixation_shown']) # EEG marker
-        core.wait(fixation_time) 
+        core.wait(soa_time) 
 
         # Show feedback
         color = 'red'
@@ -177,21 +178,7 @@ class MonetaryIncentiveDelayTask:
         # Clear the screen 
         core.wait(iti_time)
         if (trial_n in [20, 40]):
-            self.show_text('Continuar')
-     
-    """
-    def create_squares(self):
-        squares = []
-        for i in range(3):
-            square = visual.Rect(self.win, width=self.square_size, height=self.square_size, fillColor='gray')
-            square.pos = ((i - 1) * 0.6, 0)
-            squares.append(square)
-
-        for square in squares:
-            square.draw()
-
-        return squares
-    """
+            self.show_text('Continuar') 
     
     def create_squares(self):
         chests = []
@@ -201,7 +188,7 @@ class MonetaryIncentiveDelayTask:
             image = Image.open('assets/chest_2.png')
 
             # Crear el estímulo visual con la imagen
-            chest = visual.ImageStim(self.win, image=image, size=self.square_size*1.5)
+            chest = visual.ImageStim(self.win, image=image, size=0.3)
             chest.pos = ((i - 1) * 0.6, 0)
             chests.append(chest)
 
