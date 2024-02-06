@@ -1,12 +1,12 @@
 # Necessary imports
 import os
 import random
+import numpy as np
 from psychopy import visual, core, event, gui
 from pylsl import StreamInfo, StreamOutlet
 from PIL import Image
 
 class MonetaryIncentiveDelayTask:
-
     """
     Those are the configurable attributes for learning and reverse conditions, EEG signaling, and visual stimuli timing.
     
@@ -27,21 +27,30 @@ class MonetaryIncentiveDelayTask:
     """
         
     def __init__(self, subject_id):     
+        # Fixed seed for replication purposes
+        seed_value = -1 
+        if (seed_value > 0):            
+            random.seed(seed_value)        
+        
         # Create an LSL stream for sending markers
         self.info = StreamInfo(name='MarkerStream', type='Markers', channel_count=1, channel_format='string', source_id='myuidw43536')
         self.outlet = StreamOutlet(self.info)
         
         # Number of trials for each condition:
-        self.n_trials = 2
+        self.n_trials = 40
         
-        # Define the reward for the chests:
         # Each number in the probability set eg [0.8, 0.2] is the chance for each option [0, 1].
+        chests_probability = [[0.2, 0.8], [0.5, 0.5], [0.8, 0.2]] 
+        # Need to randomize the probabilities of the chests and be sure that the probability of each chest is unique in the same position.
+        learn_probability, reverse_probability = self.get_reward_probabilities(chests_probability)
+                
+        # Define the reward for the test chests:        
         self.test_trial = [[0, 0, 0], [1, 1, 1]] # Fixed results. The first one is a -1, the second one a +1
-        self.learn_trial = self.populate_trial_data(self.n_trials, [[0.8, 0.2], [0.5, 0.5], [0.2, 0.8]]) # right box > left box
-        self.reverse_trial = self.populate_trial_data(self.n_trials, [[0.2, 0.8], [0.5, 0.5], [0.8, 0.2]]) # left box > right box       
+        # Generate the reward for the learning and reverse learning chests.
+        self.learn_trial, self.reverse_trial = self.generate_trials(self.n_trials, learn_probability, reverse_probability)
         
         # Define visual variables:
-        self.win = visual.Window(fullscr=True, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
+        self.win = visual.Window(fullscr=False, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
         self.win_eeg_markers = visual.Window(size=(800, 600), color='black', units='pix') # eeg markers window        
         self.clock = core.Clock() # clock for timing the markers
         self.fixation_cross = visual.TextStim(self.win, text='+', color='black', height=0.2)
@@ -49,7 +58,59 @@ class MonetaryIncentiveDelayTask:
         # Define storage variables:
         self.trial_data = []
         self.results_file = f"results/{subject_id}.txt"
+        
+        # Save general information about the experiment
+        self.save_metadata([learn_probability, self.learn_trial, 
+                            reverse_probability, self.reverse_trial])
+
             
+    def get_reward_probabilities(self, chests_probability):
+        # Create a copy of the original probabilities
+        learn_probability = chests_probability.copy()    
+        reverse_probability = chests_probability.copy()
+        # Now randomize the probabilities of the chests until all probabilities are different for each position
+        sorted = False
+        while not sorted:
+            random.shuffle(learn_probability)
+            random.shuffle(reverse_probability)
+            if (learn_probability[0] != reverse_probability[0] and 
+                learn_probability[1] != reverse_probability[1] and 
+                learn_probability[2] != reverse_probability[2]):                
+                sorted = True
+
+        return learn_probability, reverse_probability
+     
+    def generate_trials(self, n_trials):
+        
+        # Create the arrays for the learning and reverse conditions
+        learn_trial = []
+        reverse_trial = []
+        
+        # Defining the proportions for high, medium, and low conditions
+        high_proportions = [0.8, 0.5, 0.2]
+        medium_proportions = [0.2, 0.5, 0.8]
+        low_proportions = [0.2, 0.5, 0.8]
+        
+        # Generate trials for learning and reverse conditions
+        for _ in range(n_trials):
+            learn_high = np.random.choice([1, 0], p=high_proportions)
+            learn_medium = np.random.choice([1, 0], p=medium_proportions)
+            learn_low = np.random.choice([1, 0], p=low_proportions)
+            
+            reverse_high = np.random.choice([1, 0], p=high_proportions)
+            reverse_medium = np.random.choice([1, 0], p=medium_proportions)
+            reverse_low = np.random.choice([1, 0], p=low_proportions)
+            
+            learn_trial.append([learn_high, learn_medium, learn_low])
+            reverse_trial.append([reverse_high, reverse_medium, reverse_low])
+
+        # Shuffle the trials
+        np.random.shuffle(learn_trial)
+        np.random.shuffle(reverse_trial)
+        
+        # Return the two equally distributed conditions
+        return learn_trial, reverse_trial
+
     def send_eeg_marker(self):        
         colors = ['red', 'black']
         # 60 Hz monitor = 1/60 = 0.0167 seconds per frame
@@ -70,12 +131,7 @@ class MonetaryIncentiveDelayTask:
         self.win_eeg_markers.flip()
 
 
-    def populate_trial_data(self, n_trials, proba):
-        # Fixed seed for replication purposes
-        seed_value = -1 
-        if (seed_value > 0):            
-            random.seed(seed_value)
-        
+    def populate_trial_data(self, n_trials, proba):    
         # Define the occurrence of each box based on the given probabilities
         options = [0, 1]
         box_1 = random.choices(options, proba[0], k=n_trials)
@@ -112,8 +168,8 @@ class MonetaryIncentiveDelayTask:
         
         self.show_text('¡Lo hiciste perfecto! Unas últimas aclaraciones:\n\n\n\n'
                         '   * Luego de la elección del cofre, mantené la vista en la cruz de fijación.\n\n'
-                        '   * Se registrará la señal de EEG durante todo el experimento, por lo cual evitá moverte y en lo posible evitá pestañear.\n\n'
-                        '   * Para que tomes un respiro, cada cierta cantidad de ensayos aparecerá un cartel diciendo "Presione una tecla para continuar".\n\n'
+                        '   * Se registrará la señal de EEG durante todo el experimento, por lo cual evitá moverte.\n\n'
+                        '   * Evitá pestañear, a no ser que te encuentres en la pantalla de los cofres.".\n\n'
                         '   * Si tenés alguna duda podés preguntarnos ahora ya que durante la tarea no habrá interacción con los investigadores.\n\n\n\n'                        
                         'Ahora si, cuando estés listx presiona cualquier tecla para comenzar :)')        
                 
@@ -255,6 +311,16 @@ class MonetaryIncentiveDelayTask:
         for stim in confidence_stims:
             stim.draw()
 
+    def save_metadata(self, data):
+        # Create the folder if it doesn't exist
+        results_dir = os.path.dirname(self.results_file)
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
+        # Save the results:
+        with open(self.results_file, 'a') as f:
+            f.write("learn_reward;learn_trials;reverse_reward;reverse_trials\n")
+            f.write(f"{data[0]};{data[1]};{data[2]};{data[3]};\n")
+
     def save_results(self):
         # Create the folder if it doesn't exist
         results_dir = os.path.dirname(self.results_file)
@@ -264,7 +330,7 @@ class MonetaryIncentiveDelayTask:
         with open(self.results_file, 'a') as f:
             f.write("cond;trial_n;trial_setup;chest_latency_ms;chest_sel;confidence_latency_ms;confidence_sel;hit;result;streak\n")
             for i, data in enumerate(self.trial_data):
-                f.write(f"{data[0]};{data[1]};{data[2]};{data[3]};{data[4]};{data[5]};{data[6]};{data[7]}\n")
+                f.write(f"{data[0]};{data[1]};{data[2]};{data[3]};{data[4]};{data[5]};{data[6]};{data[7]}\n")          
 
 if __name__ == "__main__": 
     # Request any relevant information needed:
@@ -275,3 +341,41 @@ if __name__ == "__main__":
     if dlg.OK:
         task = MonetaryIncentiveDelayTask(subject_id[0])
         task.run()
+
+
+
+
+        """
+        # Create a dictionary to store the position of each probability set:
+        learn_positions = {}
+        for i, chest_probability in enumerate(learn_probability):
+            learn_positions[tuple(chest_probability)] = i
+        reverse_positions = {}
+        for i, chest_probability in enumerate(reverse_probability):
+            reverse_positions[tuple(chest_probability)] = i        
+        """
+        
+        """
+        # The amount of 1 in each chest (high, medium and low prob) must be equally distributed between conditions.
+        while True:
+            # Do until the chests are equally distributed. 
+            self.learn_trial = self.populate_trial_data(n_trials, learn_probability)
+            self.reverse_trial = self.populate_trial_data(n_trials, reverse_probability)
+            
+            # High probability reward position ([0.2, 0.8] means 20% of 0 and 80% of 1) 
+            learn_high_count = sum(item[learn_positions[(0.2, 0.8)]] for item in self.learn_trial) 
+            reverse_high_count = sum(item[reverse_positions[(0.2, 0.8)]] for item in self.reverse_trial)  
+            
+            # Medium probability reward position ([0.5, 0.5] means 50% of 0 and 50% of 1) 
+            learn_med_count = sum(item[learn_positions[(0.5, 0.5)]] for item in self.learn_trial)
+            reverse_med_count = sum(item[reverse_positions[(0.5, 0.5)]] for item in self.reverse_trial)
+            
+            # Low  probability reward position ([0.8, 0.2] means 80% of 0 and 20% of 1) 
+            learn_low_count = sum(item[learn_positions[(0.8, 0.2)]] for item in self.learn_trial)
+            reverse_low_count = sum(item[reverse_positions[(0.8, 0.2)]] for item in self.reverse_trial)                   
+            
+            if (learn_high_count == reverse_high_count and 
+                learn_med_count == reverse_med_count and 
+                learn_low_count == reverse_low_count):
+                break
+        """
