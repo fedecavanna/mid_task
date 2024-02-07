@@ -1,4 +1,5 @@
 # Necessary imports
+from decimal import Decimal
 import os
 import random
 import numpy as np
@@ -13,8 +14,8 @@ class MonetaryIncentiveDelayTask:
     Trials:
         n_trials (int): Number of trials to conduct for each condition.
         seed_value (int): Seed for the random probability generator (fixed at -1 for replication purposes).
-        learn_trial (dict): Probabilities of each box in the learning condition.
-        reverse_trial (dict): Probabilities of each box in the reverse condition.    
+        learn_trial (dict): Positions of each box in the learning condition.
+        reverse_trial (dict): Positions of each box in the reverse condition.    
                             
     EEG signaling:
         marker_duration (float): Duration of the EEG marker (red flash) in seconds.   
@@ -27,8 +28,8 @@ class MonetaryIncentiveDelayTask:
     """
         
     def __init__(self, subject_id):     
-        # Fixed seed for replication purposes
-        seed_value = -1 
+        # A value of -1 fixes seed for debug and replication purposes
+        seed_value = 100
         if (seed_value > 0):            
             random.seed(seed_value)        
         
@@ -37,18 +38,17 @@ class MonetaryIncentiveDelayTask:
         self.outlet = StreamOutlet(self.info)
         
         # Number of trials for each condition:
-        self.n_trials = 40
-        
-        # Each number in the probability set eg [0.8, 0.2] is the chance for each option [0, 1].
-        chests_probability = [[0.2, 0.8], [0.5, 0.5], [0.8, 0.2]] 
-        # Need to randomize the probabilities of the chests and be sure that the probability of each chest is unique in the same position.
-        learn_probability, reverse_probability = self.get_reward_probabilities(chests_probability)
+        self.n_trials = 10
                 
         # Define the reward for the test chests:        
         self.test_trial = [[0, 0, 0], [1, 1, 1]] # Fixed results. The first one is a -1, the second one a +1
-        # Generate the reward for the learning and reverse learning chests.
-        self.learn_trial, self.reverse_trial = self.generate_trials(self.n_trials, learn_probability, reverse_probability)
         
+        # Generate the positions for the learning and reverse conditions (learn and reverse trials must have their chests in different positions)
+        learn_chest_positions, reverse_chest_positions = self.get_chest_positions(reward_percentage=[0.8, 0.5, 0.2]) # 80%, 50%, 20% of getting a reward (1)
+        
+        # Generate the whole trials for the learning and reverse learning chests.        
+        self.learn_trial, self.reverse_trial = self.generate_trials(self.n_trials, learn_chest_positions, reverse_chest_positions)
+                    
         # Define visual variables:
         self.win = visual.Window(fullscr=False, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
         self.win_eeg_markers = visual.Window(size=(800, 600), color='black', units='pix') # eeg markers window        
@@ -60,14 +60,12 @@ class MonetaryIncentiveDelayTask:
         self.results_file = f"results/{subject_id}.txt"
         
         # Save general information about the experiment
-        self.save_metadata([learn_probability, self.learn_trial, 
-                            reverse_probability, self.reverse_trial])
-
+        self.save_metadata([learn_chest_positions, self.learn_trial, reverse_chest_positions, self.reverse_trial])
             
-    def get_reward_probabilities(self, chests_probability):
+    def get_chest_positions(self, reward_percentage):
         # Create a copy of the original probabilities
-        learn_probability = chests_probability.copy()    
-        reverse_probability = chests_probability.copy()
+        learn_probability = reward_percentage.copy()    
+        reverse_probability = reward_percentage.copy()
         # Now randomize the probabilities of the chests until all probabilities are different for each position
         sorted = False
         while not sorted:
@@ -80,35 +78,39 @@ class MonetaryIncentiveDelayTask:
 
         return learn_probability, reverse_probability
      
-    def generate_trials(self, n_trials):
-        
-        # Create the arrays for the learning and reverse conditions
-        learn_trial = []
-        reverse_trial = []
-        
-        # Defining the proportions for high, medium, and low conditions
-        high_proportions = [0.8, 0.5, 0.2]
-        medium_proportions = [0.2, 0.5, 0.8]
-        low_proportions = [0.2, 0.5, 0.8]
-        
-        # Generate trials for learning and reverse conditions
-        for _ in range(n_trials):
-            learn_high = np.random.choice([1, 0], p=high_proportions)
-            learn_medium = np.random.choice([1, 0], p=medium_proportions)
-            learn_low = np.random.choice([1, 0], p=low_proportions)
+    def generate_trials(self, n_trials, learn_probability, reverse_probability):
+        # Generate the trials for the learning and reverse conditions                      
+        probability_array = [learn_probability, reverse_probability]
+        result_array = []
+        for i in range(2):              
+            # First chest reward possibilities (amount of 1s and 0s in the array)
+            chest1_ones = int(n_trials * probability_array[i][0])
+            chest1_zeros = int(n_trials * round(1-probability_array[i][0], 1))
+            # Second chest reward  possibilities (amount of 1s and 0s in the array)
+            chest2_ones = int(n_trials * probability_array[i][1])
+            chest2_zeros = int(n_trials * round(1-probability_array[i][1], 1))
+            # Third chest reward  possibilities (amount of 1s and 0s in the array)
+            chest3_ones = int(n_trials * probability_array[i][2])
+            chest3_zeros = int(n_trials * round(1-probability_array[i][2], 1))
+                    
+            # Create the arrays for each chest
+            # The first position accounts for the 1 and the second for the 0
+            first_chest_array = [1] * chest1_ones + [0] * chest1_zeros
+            second_chest_array = [1] * chest2_ones + [0] * chest2_zeros
+            third_chest_array = [1] * chest3_ones + [0] * chest3_zeros
+                            
+            # Shuffle the arrays
+            np.random.shuffle(first_chest_array)
+            np.random.shuffle(second_chest_array)
+            np.random.shuffle(third_chest_array)
             
-            reverse_high = np.random.choice([1, 0], p=high_proportions)
-            reverse_medium = np.random.choice([1, 0], p=medium_proportions)
-            reverse_low = np.random.choice([1, 0], p=low_proportions)
-            
-            learn_trial.append([learn_high, learn_medium, learn_low])
-            reverse_trial.append([reverse_high, reverse_medium, reverse_low])
-
-        # Shuffle the trials
-        np.random.shuffle(learn_trial)
-        np.random.shuffle(reverse_trial)
-        
+            # Create the trial array, that includes the three chests
+            trial_array = np.stack((first_chest_array, second_chest_array, third_chest_array), axis=1)
+            result_array.append(trial_array)
+                    
         # Return the two equally distributed conditions
+        learn_trial = result_array[0]
+        reverse_trial = result_array[1]
         return learn_trial, reverse_trial
 
     def send_eeg_marker(self):        
@@ -129,22 +131,7 @@ class MonetaryIncentiveDelayTask:
         # Then go back to black again.
         self.win_eeg_markers.color = 'black'
         self.win_eeg_markers.flip()
-
-
-    def populate_trial_data(self, n_trials, proba):    
-        # Define the occurrence of each box based on the given probabilities
-        options = [0, 1]
-        box_1 = random.choices(options, proba[0], k=n_trials)
-        box_2 = random.choices(options, proba[1], k=n_trials)
-        box_3 = random.choices(options, proba[2], k=n_trials)
-        
-        # Create the trial data based on the previously calculated array
-        result = []
-        for i in range(self.n_trials):
-            result.append([box_1[i], box_2[i], box_3[i]])
-        print(result)
-        return result
-
+    
     def show_text(self, text):
         instruction_text = text
         instructions = visual.TextStim(self.win, text=instruction_text, color='black', height=0.05, wrapWidth=1.7, alignText='left')
@@ -277,9 +264,11 @@ class MonetaryIncentiveDelayTask:
         ## ITI BLOCK
         # Clear the screen 
         core.wait(iti_time)
+        """
         if (trial_n in [20, 40]):
             self.show_text('Presione una tecla para continuar.') 
-    
+        """
+        
     def draw_chests(self):
         # Create the chest images
         chests = []
@@ -341,41 +330,3 @@ if __name__ == "__main__":
     if dlg.OK:
         task = MonetaryIncentiveDelayTask(subject_id[0])
         task.run()
-
-
-
-
-        """
-        # Create a dictionary to store the position of each probability set:
-        learn_positions = {}
-        for i, chest_probability in enumerate(learn_probability):
-            learn_positions[tuple(chest_probability)] = i
-        reverse_positions = {}
-        for i, chest_probability in enumerate(reverse_probability):
-            reverse_positions[tuple(chest_probability)] = i        
-        """
-        
-        """
-        # The amount of 1 in each chest (high, medium and low prob) must be equally distributed between conditions.
-        while True:
-            # Do until the chests are equally distributed. 
-            self.learn_trial = self.populate_trial_data(n_trials, learn_probability)
-            self.reverse_trial = self.populate_trial_data(n_trials, reverse_probability)
-            
-            # High probability reward position ([0.2, 0.8] means 20% of 0 and 80% of 1) 
-            learn_high_count = sum(item[learn_positions[(0.2, 0.8)]] for item in self.learn_trial) 
-            reverse_high_count = sum(item[reverse_positions[(0.2, 0.8)]] for item in self.reverse_trial)  
-            
-            # Medium probability reward position ([0.5, 0.5] means 50% of 0 and 50% of 1) 
-            learn_med_count = sum(item[learn_positions[(0.5, 0.5)]] for item in self.learn_trial)
-            reverse_med_count = sum(item[reverse_positions[(0.5, 0.5)]] for item in self.reverse_trial)
-            
-            # Low  probability reward position ([0.8, 0.2] means 80% of 0 and 20% of 1) 
-            learn_low_count = sum(item[learn_positions[(0.8, 0.2)]] for item in self.learn_trial)
-            reverse_low_count = sum(item[reverse_positions[(0.8, 0.2)]] for item in self.reverse_trial)                   
-            
-            if (learn_high_count == reverse_high_count and 
-                learn_med_count == reverse_med_count and 
-                learn_low_count == reverse_low_count):
-                break
-        """
