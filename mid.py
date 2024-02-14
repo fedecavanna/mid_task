@@ -1,7 +1,5 @@
 # Necessary imports
-from decimal import Decimal
-import os
-import random
+import os, random
 import numpy as np
 from psychopy import visual, core, event, gui
 from pylsl import StreamInfo, StreamOutlet
@@ -50,7 +48,7 @@ class MonetaryIncentiveDelayTask:
         self.learn_trial, self.reverse_trial = self.generate_trials(self.n_trials, learn_chest_positions, reverse_chest_positions)
                     
         # Define visual variables:
-        self.win = visual.Window(fullscr=False, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
+        self.win = visual.Window(fullscr=True, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
         self.win_eeg_markers = visual.Window(size=(800, 600), color='black', units='pix') # eeg markers window        
         self.clock = core.Clock() # clock for timing the markers
         self.fixation_cross = visual.TextStim(self.win, text='+', color='black', height=0.2)
@@ -239,19 +237,38 @@ class MonetaryIncentiveDelayTask:
 
         # Ask for the confidence level
         self.draw_confidence_scale()
-        self.win.flip()             
+        self.win.flip()  
         start_time = core.getTime()
-        while True:
-            keys = event.waitKeys(keyList=['left', 'down', 'right', 'escape'])
+        current_selection = -1
+        on_selection = True
+        while on_selection:
+            core.wait(0.1)
+            keys = event.waitKeys(keyList=['left', 'right', 'up', 'escape'])
             if keys[0] == 'escape':
                 self.outlet.push_sample(['experiment_halted']) # EEG marker
                 core.quit()            
-            elif keys[0] in ['left', 'down', 'right']:
-                selected_confidence = ['left', 'down', 'right'].index(keys[0]) # returns 0, 1, 2
+            elif keys[0] in ['left', 'right']:
+                selected_direction = ['left', 'right'].index(keys[0]) # returns 0, 1                   
+                # Draw the frame around the selected option
+                if (current_selection == -1):
+                    # First time drawing the frame, must choose between center right and left
+                    current_selection = 1 if selected_direction == 0 else 2                        
+                else:    
+                    # If the current selection is not the first or last, move the frame            
+                    if (selected_direction == 0) and (current_selection != 0):
+                        current_selection = current_selection - 1
+                    elif (selected_direction == 1) and (current_selection != 3):
+                        current_selection = current_selection + 1                                  
+                # Draw the confidence scale with the new selection             
+                self.draw_confidence_scale(current_selection)
+                self.win.flip()                
+            elif keys[0] in ['up']:
+                selected_confidence = current_selection
                 confidence_latency = int((core.getTime() - start_time) * 1000)
-                self.outlet.push_sample(['key_pressed_confidence']) # EEG marker
-                break
-
+                self.outlet.push_sample(['key_confidence_selected']) # EEG marker
+                # Break the loop
+                on_selection = False       
+ 
         # Accumulate the result
         result = calc_result(self, hit)
         streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and bool(hit) else hit 
@@ -280,20 +297,25 @@ class MonetaryIncentiveDelayTask:
         for chest in chests:
             chest.draw()
 
-    def draw_confidence_scale(self):
+    def draw_confidence_scale(self, current_selection = -1):
        # Define confidence levels and corresponding colors
-        levels = ['Mucho', 'Algo', 'Nada']
-        colors = {levels[0]: 'limegreen', levels[1]: 'olive', levels[2]: 'tomato'}            
+        levels = ['Completa', 'Bastante', 'Poco', 'Nada']
+        # colors = {levels[0]: 'limegreen', levels[1]: 'olivedrab', levels[2]: 'olive', levels[3]: 'tomato'}
         # Create TextStim for the instruction
-        instruction_text = '¿Cuán seguro estabas de ganar una moneda?'	
+        instruction_text = '¿Cuánta confianza tenías en tu elección?'	
         instructions = visual.TextStim(self.win, text=instruction_text, color='black', height=0.08, wrapWidth=1.7)
         instructions.pos = (0, 0.4)        
         # Shuffle the order of confidence levels
-        random.shuffle(levels)         
+        # random.shuffle(levels)         
         confidence_stims = []
+        initial_x = -0.4 * (len(levels) - 1) / 2 # Center the scale
         for i, level in enumerate(levels):
-            confidence_stim = visual.TextStim(self.win, text=level, color=colors[level], height=0.1)
-            confidence_stim.pos = ((i - 1) * 0.6, 0)
+            # If redrawing, check if the current level is selected
+            if i > -1:
+                selected = True if i == current_selection else False        
+
+            confidence_stim = visual.TextStim(self.win, text=level, color='black', height=0.1, bold=selected)        
+            confidence_stim.pos = (initial_x + i * 0.4, 0)
             confidence_stims.append(confidence_stim)
         # Draw the instruction and confidence levels
         instructions.draw()            
