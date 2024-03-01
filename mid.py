@@ -323,9 +323,7 @@ class MonetaryIncentiveDelayTask:
         result = calc_result(self, hit)
         streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and bool(hit) else hit 
         self.trial_data.append([cond, trial_n, trial_reward, chest_latency, selected_chest, confidence_latency, selected_confidence, hit, result, streak])
-        # trial_data_str = ', '.join(f"{cond};{trial_n};{trial_reward};{chest_latency};{selected_chest};{hit};{result};{streak}")
                        
-        # self.eeg_send_marker(self.rcs, trial_data_str) # EEG marker
         self.eeg_send_marker(self.rcs, 'trial_end') # EEG marker
         
         ## ITI BLOCK
