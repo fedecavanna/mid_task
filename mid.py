@@ -25,7 +25,7 @@ class MonetaryIncentiveDelayTask:
         iti_time (float): Inter-trial interval in seconds.
     """
         
-    def __init__(self, subject_id):     
+    def __init__(self, subject_id, experiment_part):     
         # A value of -1 fixes seed for debug and replication purposes
         seed_value = 100
         if (seed_value > 0):            
@@ -33,15 +33,27 @@ class MonetaryIncentiveDelayTask:
         
         # Number of trials for each condition:
         self.n_trials = 10
-                
-        # Define the reward for the test chests:        
-        self.test_trial = [[0, 0, 0], [1, 1, 1]] # Fixed results. The first one is a -1, the second one a +1
-        
-        # Generate the positions for the learning and reverse conditions (learn and reverse trials must have their chests in different positions)
-        learn_chest_positions, reverse_chest_positions = self.get_chest_positions(reward_percentage=[0.8, 0.5, 0.2]) # 80%, 50%, 20% of getting a reward (1)
-        
-        # Generate the whole trials for the learning and reverse learning chests.        
-        self.learn_trial, self.reverse_trial = self.generate_trials(self.n_trials, learn_chest_positions, reverse_chest_positions)
+         
+        if (experiment_part == 0):       
+            # Define the reward for the test chests:        
+            self.test_trial = [[0, 0, 0], [1, 1, 1]] # Fixed results. The first one is a -1, the second one a +1
+
+            # Generate the positions for the learning and reverse conditions (learn and reverse trials must have their chests in different positions)
+            learn_chest_positions, reverse_chest_positions = self.get_chest_positions(reward_percentage=[0.8, 0.5, 0.2]) # 80%, 50%, 20% of getting a reward (1)
+            # Generate the refresh trials
+            refresh_trials = self.generate_refresh_trials(10, learn_chest_positions)
+            
+            # Generate the whole trials for the learning and reverse learning chests.        
+            self.learn_trial, self.reverse_trial = self.generate_trials(self.n_trials, learn_chest_positions, reverse_chest_positions)
+        elif (experiment_part == 1):
+            # Read the metadata from the previous part
+            metadata = self.read_metadata()
+            
+            # Extract the chest positions and trials from the metadata
+            learn_chest_positions = metadata[0]
+            self.learn_trial = metadata[1]
+            reverse_chest_positions = metadata[2]
+            self.reverse_trial = metadata[3]            
                     
         # Define visual variables:
         self.win = visual.Window(fullscr=False, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
@@ -51,10 +63,12 @@ class MonetaryIncentiveDelayTask:
         
         # Define storage variables:
         self.trial_data = []
-        self.results_file = f"results/{subject_id}.txt"
+        self.results_file = f"results/{subject_id}_part_{experiment_part}.txt"
+        self.experiment_part = int(experiment_part)
         
         # Save general information about the experiment
-        self.save_metadata([learn_chest_positions, self.learn_trial, reverse_chest_positions, self.reverse_trial])
+        if (self.experiment_part == 0): 
+            self.save_metadata([learn_chest_positions, self.learn_trial, reverse_chest_positions, self.reverse_trial])
             
     def eeg_connect(self):
         import time
@@ -70,7 +84,6 @@ class MonetaryIncentiveDelayTask:
         time.sleep(2)    
         return rcs
 
-        
     def eeg_start_recording(self, rcs):
         import time             
         # Set the RCS to recording 
@@ -153,6 +166,13 @@ class MonetaryIncentiveDelayTask:
         reverse_trial = result_array[1]
         return learn_trial, reverse_trial
     
+    def generate_refresh_trials(self, n_trials, learn_chest_positions):
+        position = learn_chest_positions.index(0.8)
+        refresh_trial = [0] * 3
+        refresh_trial[position] = 1
+        for i in range(len(n_trials)):
+            self.run_trial('refresh', i+1, refresh_trial)
+    
     def show_text(self, text):
         instruction_text = text
         instructions = visual.TextStim(self.win, text=instruction_text, color='black', height=0.05, wrapWidth=1.7, alignText='left')
@@ -160,35 +180,18 @@ class MonetaryIncentiveDelayTask:
         self.win.flip()
         event.waitKeys()
 
-    def run(self):
-        # Connect EEG
-        self.rcs = self.eeg_connect()            
-        
-        self.show_text('¡Bienvenidx! Por favor leé con atención.\n\n\n\n'
-                        'La tarea que estás por realizar consta de varios ensayos como el siguiente:\n\n'
-                        '   * Aparecerán tres cofres en pantalla. Cada uno tiene una probabilidad de recompensa diferente.\n\n'
-                        '   * Elegí uno presionando alguna de las teclas: izquierda, abajo o derecha.\n\n'              
-                        '   * Te preguntaremos cuán seguro estás de que tu elección es correcta.\n\n'                                 
-                        '   * Finalmente te mostraremos el resultado (+1, -1).\n\n'                                               
-                        '   * ¡El objetivo de la tarea es obtener la mayor cantidad de monedas posibles!\n\n\n\n'                      
-                        'Presiona cualquier tecla para comenzar una ronda de prueba.')    
-        
+    def run_test_trials(self):
+        # Test trials
+        self.eeg_send_marker(self.rcs, 'test_trials_start') # EEG marker   
+        for i in range(len(self.test_trial)):
+            self.run_trial('test', i+1, self.test_trial[i])
+        self.eeg_send_marker(self.rcs, 'test_trials_end') # EEG marker   
+   
+    def run_learning_trials(self):
+        # Start the EEG recording        
         self.eeg_start_recording(self.rcs)
         try:
-            self.eeg_send_marker(self.rcs, 'experiment_start') # EEG marker   
-            
-            # Test trials
-            self.eeg_send_marker(self.rcs, 'test_trials_start') # EEG marker   
-            for i in range(len(self.test_trial)):
-                self.run_trial('test', i+1, self.test_trial[i])
-            self.eeg_send_marker(self.rcs, 'test_trials_end') # EEG marker   
-            
-            self.show_text('¡Lo hiciste perfecto! Unas últimas aclaraciones:\n\n\n\n'
-                            '   * Luego de la elección del cofre, mantené la vista en la cruz de fijación.\n\n'
-                            '   * Se registrará la señal de EEG durante todo el experimento, por lo cual evitá moverte.\n\n'
-                            '   * Evitá pestañear, a no ser que te encuentres en la pantalla de los cofres.".\n\n'
-                            '   * Si tenés alguna duda podés preguntarnos ahora ya que durante la tarea no habrá interacción con los investigadores.\n\n\n\n'                        
-                            'Ahora si, cuando estés listx presiona cualquier tecla para comenzar :)')        
+            self.eeg_send_marker(self.rcs, 'experiment_start') # EEG marker  
             
             # Learning trials
             self.eeg_send_marker(self.rcs, 'learning_trials_start') # EEG marker                     
@@ -197,27 +200,73 @@ class MonetaryIncentiveDelayTask:
             self.eeg_send_marker(self.rcs, 'learning_trials_end') # EEG marker            
             self.eeg_stop_recording(self.rcs)
             
-            prev_color = self.win.color
-            self.win.color = 'red'
-            self.show_text('¡Listo por ahora! \n\n'
-                           'Por favor contactate con el investigador a cargo.')                 
-            self.win.color = prev_color
+            self.eeg_send_marker(self.rcs, 'experiment_end') # EEG marker  
             
-            self.eeg_start_recording(self.rcs)            
+        finally:
+            # No matter what, this is allways executed:
+            self.save_results()             
+            self.eeg_stop_recording(self.rcs)   
+   
+    def run_refresh_learning_trials(self):
+        pass  
+   
+    def run_reverse_learning_trials(self):
+        # Start the EEG recording     
+        self.eeg_start_recording(self.rcs)
+        try:
+            self.eeg_send_marker(self.rcs, 'experiment_start') # EEG marker
+                      
             # Reverse learning trials
             self.eeg_send_marker(self.rcs, 'reverse_learning_trials_start') # EEG marker
             for i in range(self.n_trials):
                 self.run_trial('reverse', i+1, self.reverse_trial[i]) # Pass the estimated reward of each trial as a parameter            
-            self.eeg_send_marker(self.rcs, 'reverse_learning_trials_end') # EEG marker
-            
-            self.eeg_send_marker(self.rcs, 'experiment_end') # EEG marker   
+            self.eeg_send_marker(self.rcs, 'reverse_learning_trials_end') # EEG marker  
         finally:
             # No matter what, this is allways executed:
             self.save_results()             
             self.eeg_stop_recording(self.rcs)
+            self.eeg_send_marker(self.rcs, 'experiment_end') # EEG marker    
+          
+    def run(self):
+        # Connect EEG
+        self.rcs = self.eeg_connect()              
+         
+        if (self.experiment_part == 1):
+            self.show_text('¡Bienvenidx! Por favor leé con atención.\n\n\n\n'
+                            'La tarea que estás por realizar consta de varios ensayos como el siguiente:\n\n'
+                            '   * Aparecerán tres cofres en pantalla. Cada uno tiene una probabilidad de recompensa diferente.\n\n'
+                            '   * Elegí uno presionando alguna de las teclas: izquierda, abajo o derecha.\n\n'              
+                            '   * Te preguntaremos cuán seguro estás de que tu elección es correcta.\n\n'                                 
+                            '   * Finalmente te mostraremos el resultado (+1, -1).\n\n'                                               
+                            '   * ¡El objetivo de la tarea es obtener la mayor cantidad de monedas posibles!\n\n\n\n'                      
+                            'Presiona cualquier tecla para comenzar una ronda de prueba.')              
+            
+            # Test trials
+            self.run_test_trials() 
 
-        self.show_text('¡Lo hiciste perfecto! Muchas gracias por participar :)\n\n\n\n'                      
-                        'Presiona cualquier tecla para finalizar.')
+            self.show_text('¡Lo hiciste perfecto! Unas últimas aclaraciones:\n\n\n\n'
+                            '   * Luego de la elección del cofre, mantené la vista en la cruz de fijación.\n\n'
+                            '   * Se registrará la señal de EEG durante todo el experimento, por lo cual evitá moverte.\n\n'
+                            '   * Evitá pestañear, a no ser que te encuentres en la pantalla de los cofres.".\n\n'
+                            '   * Si tenés alguna duda podés preguntarnos ahora ya que durante la tarea no habrá interacción con los investigadores.\n\n\n\n'                        
+                            'Ahora si, cuando estés listx presiona cualquier tecla para comenzar :)')                  
+            
+            # Learning trials
+            self.run_learning_trials()
+        
+            self.show_text('¡Listo por ahora! \n\n'
+                        'Por favor contactate con el investigador a cargo.')                 
+        
+        elif (self.experiment_part == 2):
+                        
+            # Refresh learning trials
+            self.run_refresh_learning_trials()
+            
+            # Reverse learning trials:
+            self.run_reverse_learning_trials()
+
+            self.show_text('¡Lo hiciste perfecto! Muchas gracias por participar :)\n\n\n\n'                      
+                            'Presiona cualquier tecla para finalizar.')
         
     def run_trial(self, cond, trial_n, trial_reward):
         # Each trial is performed as follows
@@ -380,6 +429,30 @@ class MonetaryIncentiveDelayTask:
             f.write("learn_reward;learn_trials;reverse_reward;reverse_trials\n")
             f.write(f"{data[0]};{data[1]};{data[2]};{data[3]};\n")
 
+    def read_metadata(self):
+        # Check if the file exists
+        if not os.path.exists(self.results_file):
+            return None
+
+        # Open the file for reading
+        with open(self.results_file, 'r') as f:
+            # Skip the header line
+            next(f)
+
+            # Read the data line
+            data_line = f.readline()
+
+            # Check if the line is empty or contains only newline character
+            if not data_line.strip():
+                return None
+
+            # Split the data line by semicolon and convert to float
+            data = [float(value) for value in data_line.split(';')]
+
+            # Return a list containing the four saved values
+            return data[0:4]
+
+
     def save_results(self):
         # Create the folder if it doesn't exist
         results_dir = os.path.dirname(self.results_file)
@@ -396,7 +469,10 @@ if __name__ == "__main__":
     dlg = gui.Dlg(title="Información")
     dlg.addText("Por favor, ingresa el ID del sujeto:")
     dlg.addField("Sujeto: ", "s")
+    part_options = ("1", "2")
+    dlg.addComboBox("Parte: ", part_options, "s") 
     subject_id = dlg.show()[0]
+    experiment_part = dlg.show()[1]
     if dlg.OK:
-        task = MonetaryIncentiveDelayTask(subject_id)
+        task = MonetaryIncentiveDelayTask(subject_id, experiment_part)
         task.run()
