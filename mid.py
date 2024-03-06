@@ -25,7 +25,7 @@ class MonetaryIncentiveDelayTask:
         iti_time (float): Inter-trial interval in seconds.
     """
         
-    def __init__(self, subject_id, experiment_part):     
+    def __init__(self, subject_id, experiment_conedition, experiment_part):     
         # A value of -1 fixes seed for debug and replication purposes
         seed_value = 100
         if (seed_value > 0):            
@@ -34,7 +34,7 @@ class MonetaryIncentiveDelayTask:
         # Number of trials for each condition:
         self.n_trials = 10
          
-        if (experiment_part == 0):       
+        if (experiment_part == 1):       
             # Define the reward for the test chests:        
             self.test_trial = [[0, 0, 0], [1, 1, 1]] # Fixed results. The first one is a -1, the second one a +1
 
@@ -45,7 +45,7 @@ class MonetaryIncentiveDelayTask:
             
             # Generate the whole trials for the learning and reverse learning chests.        
             self.learn_trial, self.reverse_trial = self.generate_trials(self.n_trials, learn_chest_positions, reverse_chest_positions)
-        elif (experiment_part == 1):
+        elif (experiment_part == 2):
             # Read the metadata from the previous part
             metadata = self.read_metadata()
             
@@ -63,11 +63,12 @@ class MonetaryIncentiveDelayTask:
         
         # Define storage variables:
         self.trial_data = []
-        self.results_file = f"results/{subject_id}_part_{experiment_part}.txt"
+        self.results_file = f"results/{subject_id}_{experiment_condition}_part_{str(experiment_part)}.txt"
+        self.experiment_condition = int(experiment_part)
         self.experiment_part = int(experiment_part)
         
         # Save general information about the experiment
-        if (self.experiment_part == 0): 
+        if (self.experiment_part == 1): 
             self.save_metadata([learn_chest_positions, self.learn_trial, reverse_chest_positions, self.reverse_trial])
             
     def eeg_connect(self):
@@ -170,8 +171,10 @@ class MonetaryIncentiveDelayTask:
         position = learn_chest_positions.index(0.8)
         refresh_trial = [0] * 3
         refresh_trial[position] = 1
-        for i in range(len(n_trials)):
-            self.run_trial('refresh', i+1, refresh_trial)
+        result_array = []
+        for i in range(n_trials):
+            result_array.append(refresh_trial)   
+        return result_array
     
     def show_text(self, text):
         instruction_text = text
@@ -226,6 +229,8 @@ class MonetaryIncentiveDelayTask:
             self.save_results()             
             self.eeg_stop_recording(self.rcs)
             self.eeg_send_marker(self.rcs, 'experiment_end') # EEG marker    
+          
+    win call on flip
           
     def run(self):
         # Connect EEG
@@ -426,8 +431,10 @@ class MonetaryIncentiveDelayTask:
             os.makedirs(results_dir)
         # Save the results:
         with open(self.results_file, 'a') as f:
+            learn_list = [list(sublista) for sublista in data[1]] 
+            reverse_list = [list(sublista) for sublista in data[3]] 
             f.write("learn_reward;learn_trials;reverse_reward;reverse_trials\n")
-            f.write(f"{data[0]};{data[1]};{data[2]};{data[3]};\n")
+            f.write(f"{data[0]};{learn_list};{data[2]};{reverse_list};\n")
 
     def read_metadata(self):
         # Check if the file exists
@@ -467,12 +474,14 @@ class MonetaryIncentiveDelayTask:
 if __name__ == "__main__": 
     # Request any relevant information needed:
     dlg = gui.Dlg(title="Información")
-    dlg.addText("Por favor, ingresa el ID del sujeto:")
+    dlg.addText("Por favor, ingresa ID, condición y parte del sujeto:")
     dlg.addField("Sujeto: ", "s")
-    part_options = ("1", "2")
-    dlg.addComboBox("Parte: ", part_options, "s") 
-    subject_id = dlg.show()[0]
-    experiment_part = dlg.show()[1]
+    dlg.addField('Condición:', choices=["A", "B"])
+    dlg.addField('Parte:', choices=["1", "2"])
+    data = dlg.show()
     if dlg.OK:
-        task = MonetaryIncentiveDelayTask(subject_id, experiment_part)
+        subject_id = data[0]
+        experiment_condition = data[1]
+        experiment_part = int(data[2])
+        task = MonetaryIncentiveDelayTask(subject_id, experiment_condition, experiment_part)
         task.run()
