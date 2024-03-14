@@ -1,9 +1,50 @@
 # Necessary imports
-import os, random
+import os, random, time
 import numpy as np
 from psychopy import visual, core, event, gui
 from psychopy.hardware import brainproducts
 from PIL import Image
+
+class EEGInterface:    
+    def eeg_connect(self):
+        # Start the connection to RCS
+        rcs = brainproducts.RemoteControlServer(host='127.0.0.1', port=6700, timeout=10.0, testMode=False) 
+        rcs.openRecorder()
+        time.sleep(1)
+        rcs.mode = 'default' # Set the mode to default (aka idle state)
+        time.sleep(1)      
+        rcs.amplifier = 'LiveAmp', 'LA-05490-0200' #'Simulated Amplifier'
+        rcs.open(expName = 'PsiloLearn', participant = subject_id, workspace = r'C:\Vision\Workfiles\PsiloLearn.rwksp')
+        time.sleep(2)    
+        return rcs
+
+    def eeg_start_recording(self, rcs):          
+        # Set the RCS to recording 
+        rcs.mode = 'monitor'
+        rcs.startRecording()
+        time.sleep(2)
+        
+    def eeg_stop_recording(self, rcs):
+        # End recording
+        rcs.stopRecording()
+        time.sleep(1)
+        rcs.mode = 'default'  
+        time.sleep(1)
+
+    def eeg_pause_recording(self, rcs):
+        # Pause recording
+        rcs.pauseRecording()
+        time.sleep(2)
+
+    def eeg_resume_recording(self, rcs):
+        # Resume recording
+        rcs.resumeRecording()
+        time.sleep(1)
+        
+    def eeg_send_marker(self, rcs, text, annot_type = 'ANNOT'):
+        # Write annotation
+        rcs.sendAnnotation(text, annot_type)        
+
 
 class MonetaryIncentiveDelayTask:
     """
@@ -30,6 +71,9 @@ class MonetaryIncentiveDelayTask:
         seed_value = 100
         if (seed_value > 0):            
             random.seed(seed_value)        
+        
+        # Init the interface to the EEG
+        self.eeg_interface = EEGInterface()
         
         # Number of trials for each condition:
         self.n_trials = 10
@@ -70,52 +114,7 @@ class MonetaryIncentiveDelayTask:
         # Save general information about the experiment
         if (self.experiment_part == 1): 
             self.save_metadata([learn_chest_positions, self.learn_trial, reverse_chest_positions, self.reverse_trial])
-            
-    def eeg_connect(self):
-        import time
-
-        # Start the connection to RCS
-        rcs = brainproducts.RemoteControlServer(host='127.0.0.1', port=6700, timeout=10.0, testMode=False) 
-        rcs.openRecorder()
-        time.sleep(1)
-        rcs.mode = 'default' # Set the mode to default (aka idle state)
-        time.sleep(1)      
-        rcs.amplifier = 'LiveAmp', 'LA-05490-0200' #'Simulated Amplifier'
-        rcs.open(expName = 'PsiloLearn', participant = subject_id, workspace = r'C:\Vision\Workfiles\PsiloLearn.rwksp')
-        time.sleep(2)    
-        return rcs
-
-    def eeg_start_recording(self, rcs):
-        import time             
-        # Set the RCS to recording 
-        rcs.mode = 'monitor'
-        rcs.startRecording()
-        time.sleep(2)
-        
-    def eeg_stop_recording(self, rcs):
-        import time
-        # End recording
-        rcs.stopRecording()
-        time.sleep(1)
-        rcs.mode = 'default'  
-        time.sleep(1)
-
-    def eeg_pause_recording(self, rcs):
-        import time
-        # Pause recording
-        rcs.pauseRecording()
-        time.sleep(2)
-
-    def eeg_resume_recording(self, rcs):
-        import time
-        # Resume recording
-        rcs.resumeRecording()
-        time.sleep(1)
-        
-    def eeg_send_marker(self, rcs, text, annot_type = 'ANNOT'):
-        # Write annotation
-        rcs.sendAnnotation(text, annot_type)          
-            
+                 
     def get_chest_positions(self, reward_percentage):
         # Create a copy of the original probabilities
         learn_probability = reward_percentage.copy()    
@@ -185,56 +184,54 @@ class MonetaryIncentiveDelayTask:
 
     def run_test_trials(self):
         # Test trials
-        self.eeg_send_marker(self.rcs, 'test_trials_start') # EEG marker   
+        self.eeg_interface.eeg_send_marker(self.rcs, 'test_trials_start') # EEG marker   
         for i in range(len(self.test_trial)):
             self.run_trial('test', i+1, self.test_trial[i])
-        self.eeg_send_marker(self.rcs, 'test_trials_end') # EEG marker   
+        self.eeg_interface.eeg_send_marker(self.rcs, 'test_trials_end') # EEG marker   
    
     def run_learning_trials(self):
         # Start the EEG recording        
-        self.eeg_start_recording(self.rcs)
+        self.eeg_interface.eeg_start_recording(self.rcs)
         try:
-            self.eeg_send_marker(self.rcs, 'experiment_start') # EEG marker  
+            self.eeg_interface.eeg_send_marker(self.rcs, 'experiment_start') # EEG marker  
             
             # Learning trials
-            self.eeg_send_marker(self.rcs, 'learning_trials_start') # EEG marker                     
+            self.eeg_interface.eeg_send_marker(self.rcs, 'learning_trials_start') # EEG marker                     
             for i in range(self.n_trials):
                 self.run_trial('learn', i+1, self.learn_trial[i]) # Pass the estimated reward of each trial as a parameter
-            self.eeg_send_marker(self.rcs, 'learning_trials_end') # EEG marker            
-            self.eeg_stop_recording(self.rcs)
+            self.eeg_interface.eeg_send_marker(self.rcs, 'learning_trials_end') # EEG marker            
+            self.eeg_interface.eeg_stop_recording(self.rcs)
             
-            self.eeg_send_marker(self.rcs, 'experiment_end') # EEG marker  
+            self.eeg_interface.eeg_send_marker(self.rcs, 'experiment_end') # EEG marker  
             
         finally:
             # No matter what, this is allways executed:
             self.save_results()             
-            self.eeg_stop_recording(self.rcs)   
+            self.eeg_interface.eeg_stop_recording(self.rcs)   
    
     def run_refresh_learning_trials(self):
         pass  
    
     def run_reverse_learning_trials(self):
         # Start the EEG recording     
-        self.eeg_start_recording(self.rcs)
+        self.eeg_interface.eeg_start_recording(self.rcs)
         try:
-            self.eeg_send_marker(self.rcs, 'experiment_start') # EEG marker
+            self.eeg_interface.eeg_send_marker(self.rcs, 'experiment_start') # EEG marker
                       
             # Reverse learning trials
-            self.eeg_send_marker(self.rcs, 'reverse_learning_trials_start') # EEG marker
+            self.eeg_interface.eeg_send_marker(self.rcs, 'reverse_learning_trials_start') # EEG marker
             for i in range(self.n_trials):
                 self.run_trial('reverse', i+1, self.reverse_trial[i]) # Pass the estimated reward of each trial as a parameter            
-            self.eeg_send_marker(self.rcs, 'reverse_learning_trials_end') # EEG marker  
+            self.eeg_interface.eeg_send_marker(self.rcs, 'reverse_learning_trials_end') # EEG marker  
         finally:
             # No matter what, this is allways executed:
             self.save_results()             
-            self.eeg_stop_recording(self.rcs)
-            self.eeg_send_marker(self.rcs, 'experiment_end') # EEG marker    
-          
-    win call on flip
-          
+            self.eeg_interface.eeg_stop_recording(self.rcs)
+            self.eeg_interface.eeg_send_marker(self.rcs, 'experiment_end') # EEG marker    
+                    
     def run(self):
-        # Connect EEG
-        self.rcs = self.eeg_connect()              
+        # Connect EEG                
+        self.rcs = self.eeg_interface.eeg_connect()              
          
         if (self.experiment_part == 1):
             self.show_text('¡Bienvenidx! Por favor leé con atención.\n\n\n\n'
@@ -290,13 +287,13 @@ class MonetaryIncentiveDelayTask:
             res = n+1 if hit == 1 else n-1 
             return res
         
-        self.eeg_send_marker(self.rcs, 'trial_start') # EEG marker
+        self.eeg_interface.eeg_send_marker(self.rcs, 'trial_start') # EEG marker
         
         ## STIMULI BLOCK
         # Create the fixation cross (pre stimuli)
         self.fixation_cross.draw()
-        self.win.flip()
-        self.eeg_send_marker(self.rcs, 'stimuli_fixation_shown') # EEG marker
+        self.win.callOnFlip(self.eeg_send_marker, self.rcs, 'stimuli_fixation_shown') # EEG marker   
+        self.win.flip()             
         core.wait(fixation_time) 
         
         # Create and show the chests
@@ -306,12 +303,12 @@ class MonetaryIncentiveDelayTask:
         while True:
             keys = event.waitKeys(keyList=['left', 'down', 'right', 'escape'])
             if keys[0] == 'escape':
-                self.eeg_send_marker(self.rcs, 'experiment_halted') # EEG marker
+                self.eeg_interface.eeg_send_marker(self.rcs, 'experiment_halted') # EEG marker
                 core.quit()            
             elif keys[0] in ['left', 'down', 'right']:
                 selected_chest = ['left', 'down', 'right'].index(keys[0]) # returns 0, 1, 2
                 chest_latency = int((core.getTime() - start_time) * 1000)
-                self.eeg_send_marker(self.rcs, 'key_pressed_chest') # EEG marker
+                self.eeg_interface.eeg_send_marker(self.rcs, 'key_pressed_chest') # EEG marker
                 break            
              
         ## GAP BLOCK
@@ -325,8 +322,9 @@ class MonetaryIncentiveDelayTask:
         ## RESULTS BLOCK
         # Create the fixation cross (pre results)
         self.fixation_cross.draw()
+        self.win.callOnFlip(self.eeg_interface.eeg_send_marker, self.rcs, 'result_fixation_shown') # EEG marker
         self.win.flip()
-        self.eeg_send_marker(self.rcs, 'result_fixation_shown') # EEG marker
+        
         core.wait(soa_time) 
 
         # Show feedback
@@ -335,8 +333,8 @@ class MonetaryIncentiveDelayTask:
             color = 'green'
         feedback = visual.TextStim(self.win, text=result_text, color=color, height=0.15, bold=True)
         feedback.draw()
+        self.win.callOnFlip(self.eeg_interface.eeg_send_marker, self.rcs, 'feedback_shown') # EEG marker
         self.win.flip()
-        self.eeg_send_marker(self.rcs, 'feedback_shown') # EEG marker
         core.wait(result_time)
 
         # Ask for the confidence level
@@ -349,7 +347,7 @@ class MonetaryIncentiveDelayTask:
             core.wait(0.1)
             keys = event.waitKeys(keyList=['left', 'right', 'up', 'escape'])
             if keys[0] == 'escape':                
-                self.eeg_send_marker(self.rcs, 'experiment_halted') # EEG marker
+                self.eeg_interface.eeg_send_marker(self.rcs, 'experiment_halted') # EEG marker
                 core.quit()            
             elif keys[0] in ['left', 'right']:
                 selected_direction = ['left', 'right'].index(keys[0]) # returns 0, 1                   
@@ -369,7 +367,7 @@ class MonetaryIncentiveDelayTask:
             elif keys[0] in ['up']:
                 selected_confidence = current_selection
                 confidence_latency = int((core.getTime() - start_time) * 1000)                
-                self.eeg_send_marker(self.rcs, 'key_confidence_selected') # EEG marker
+                self.eeg_interface.eeg_send_marker(self.rcs, 'key_confidence_selected') # EEG marker
                 # Break the loop
                 on_selection = False       
  
@@ -378,16 +376,12 @@ class MonetaryIncentiveDelayTask:
         streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and bool(hit) else hit 
         self.trial_data.append([cond, trial_n, trial_reward, chest_latency, selected_chest, confidence_latency, selected_confidence, hit, result, streak])
                        
-        self.eeg_send_marker(self.rcs, 'trial_end') # EEG marker
+        self.eeg_interface.eeg_send_marker(self.rcs, 'trial_end') # EEG marker
         
         ## ITI BLOCK
         # Clear the screen 
         core.wait(iti_time)
-        """
-        if (trial_n in [20, 40]):
-            self.show_text('Presione una tecla para continuar.') 
-        """
-        
+
     def draw_chests(self):
         # Create the chest images
         chests = []
