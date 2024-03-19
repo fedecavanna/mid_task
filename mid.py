@@ -348,10 +348,17 @@ class MonetaryIncentiveDelayTask:
         on_selection = True
         while on_selection:
             core.wait(0.1)
-            keys = event.waitKeys(keyList=['left', 'right', 'lctrl', 'escape'])
+            keys = event.waitKeys(keyList=['1', '2', '3', '4', 'escape'])
             if keys[0] == 'escape':                
                 self.eeg_interface.eeg_send_marker('experiment_halted') # EEG marker
-                core.quit()            
+                core.quit()    
+            elif keys[0] in ['1', '2', '3', '4']:       
+                    selected_confidence = keys[0]
+                    confidence_latency = int((core.getTime() - start_time) * 1000)                
+                    self.eeg_interface.eeg_send_marker('key_confidence_selected') # EEG marker
+                    # Break the loop
+                    on_selection = False   
+            """        
             elif keys[0] in ['left', 'right']:
                 selected_direction = ['left', 'right'].index(keys[0]) # returns 0, 1                   
                 # Draw the frame around the selected option
@@ -374,7 +381,7 @@ class MonetaryIncentiveDelayTask:
                     self.eeg_interface.eeg_send_marker('key_confidence_selected') # EEG marker
                     # Break the loop
                     on_selection = False       
- 
+            """
         # Accumulate the result
         result = calc_result(self, hit)
         streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and bool(hit) else hit 
