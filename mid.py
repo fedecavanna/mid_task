@@ -6,15 +6,15 @@ from psychopy.hardware import brainproducts
 from PIL import Image
 
 class EEGInterface:    
-    def eeg_connect(self):
-        # Start the connection to RCS
+    def eeg_connect(self, subject_id, experiment_condition, experiment_part):
+        # Start the connection to RCS        
         self.rcs = brainproducts.RemoteControlServer(host='127.0.0.1', port=6700, timeout=10.0, testMode=False) 
         self.rcs.openRecorder()
         time.sleep(1)
         self.rcs.mode = 'default' # Set the mode to default (aka idle state)
         time.sleep(1)      
         self.rcs.amplifier = 'Simulated Amplifier', 'LA-05490-0200' #'Simulated Amplifier' LiveAmp'
-        subject_tag = f"{self.subject_id}_{self.experiment_condition}_part_{str(self.experiment_part)}"
+        subject_tag = f"{subject_id}_{experiment_condition}_part_{str(experiment_part)}"
         self.rcs.open(expName = 'PsiloLearn', participant = subject_tag, workspace = r'C:\Vision\Workfiles\PsiloLearn.rwksp')
         time.sleep(2)    
         
@@ -80,6 +80,7 @@ class MonetaryIncentiveDelayTask:
         self.trial_data = []
         self.metadata_file = f"results/{subject_id}/{subject_id}_metadata.txt"
         self.results_file = f"results/{subject_id}/{subject_id}_{experiment_condition}_part_{str(experiment_part)}.txt"
+        self.subject_id = subject_id
         self.experiment_condition = experiment_condition
         self.experiment_part = int(experiment_part)        
         
@@ -237,7 +238,7 @@ class MonetaryIncentiveDelayTask:
     def run(self):
         # Connect EEG    
         self.show_text('Presioná una tecla para conectar el EEG...', 0)            
-        self.eeg_interface.eeg_connect()              
+        self.eeg_interface.eeg_connect(self.subject_id, self.experiment_condition, self.experiment_part)              
          
         if (self.experiment_part == 1):
             self.show_text('¡Bienvenidx! Por favor leé con atención.\n\n\n\n'
@@ -265,9 +266,8 @@ class MonetaryIncentiveDelayTask:
             self.show_text('¡Listo por ahora! \n\n'
                         'Por favor contactate con el investigador a cargo.', 10)                 
         
-        elif (self.experiment_part == 2):
-                                    
-            # Reverse learning trials:
+        elif (self.experiment_part == 2):                   
+            # Refresh trials + Reverse learning trials:
             self.run_reverse_learning_trials()
 
             self.show_text('¡Lo hiciste perfecto! Muchas gracias por participar :)\n\n\n\n'                      
@@ -285,7 +285,7 @@ class MonetaryIncentiveDelayTask:
         # Handle the counter for the total gain-loss result:
         def calc_result(self, hit): 
             # Get the last count
-            n = self.trial_data[-1][6] if len(self.trial_data) > 0 else 0
+            n = int(self.trial_data[-1][6]) if len(self.trial_data) > 0 else 0
             # Evaluate whether to add or subtract and return
             res = n+1 if hit == 1 else n-1 
             return res
@@ -358,30 +358,7 @@ class MonetaryIncentiveDelayTask:
                     self.eeg_interface.eeg_send_marker('key_confidence_selected') # EEG marker
                     # Break the loop
                     on_selection = False   
-            """        
-            elif keys[0] in ['left', 'right']:
-                selected_direction = ['left', 'right'].index(keys[0]) # returns 0, 1                   
-                # Draw the frame around the selected option
-                if (current_value == None):
-                    # First time drawing the frame, must choose between center right and left
-                    current_value = 1 if selected_direction == 0 else 2                        
-                else:    
-                    # If the current selection is not the first or last, move the frame            
-                    if (selected_direction == 0) and (current_value != 0):
-                        current_value = current_value - 1
-                    elif (selected_direction == 1) and (current_value != 3):
-                        current_value = current_value + 1                                  
-                # Draw the confidence scale with the new selection             
-                self.draw_confidence_scale(current_value)
-                self.win.flip()                
-            elif keys[0] in ['lctrl']:
-                if (current_value != None): # If the selection is valid
-                    selected_confidence = current_value
-                    confidence_latency = int((core.getTime() - start_time) * 1000)                
-                    self.eeg_interface.eeg_send_marker('key_confidence_selected') # EEG marker
-                    # Break the loop
-                    on_selection = False       
-            """
+
         # Accumulate the result
         result = calc_result(self, hit)
         streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and bool(hit) else hit 
@@ -439,7 +416,7 @@ class MonetaryIncentiveDelayTask:
             learn_list = [list(sublist) for sublist in data[1]] 
             reverse_list = [list(sublist) for sublist in data[4]] 
             f.write("learn_reward;learn_trials;refresh_trials;reverse_reward;reverse_trials\n")
-            f.write(f"{data[0]};{learn_list};{data[2]};{data[3]};{reverse_list};\n")
+            f.write(f"{data[0]};{learn_list};{data[2]};{data[3]};{reverse_list}\n")
 
     def read_metadata(self):
         # Check if the file exists
@@ -448,21 +425,15 @@ class MonetaryIncentiveDelayTask:
 
         # Open the file for reading
         with open(self.metadata_file, 'r') as f:
-            # Skip the header line
-            next(f)
-
-            # Read the data line
-            data_line = f.readline()
-
-            # Check if the line is empty or contains only newline character
-            if not data_line.strip():
-                return None
-
-            # Split the data line by semicolon and convert to float
-            data = [float(value) for value in data_line.split(';')]
+            # Read the first line (header)
+            header = f.readline().strip().split(';')
+            
+            # Read the second line (data)
+            data = f.readline().strip()
+            data_line = [eval(item) for item in data.split(';')]
 
             # Return a list containing the four saved values
-            return data[0:4]
+            return data_line
 
 
     def save_results(self):
