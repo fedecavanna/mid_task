@@ -5,47 +5,53 @@ from psychopy import visual, core, event, gui
 from psychopy.hardware import brainproducts
 from PIL import Image
 
-class EEGInterface:    
+class EEGInterface:     
+    debug = True   
     def eeg_connect(self, subject_id, experiment_condition, experiment_part):
-        # Start the connection to RCS        
-        self.rcs = brainproducts.RemoteControlServer(host='127.0.0.1', port=6700, timeout=10.0, testMode=False) 
-        self.rcs.openRecorder()
-        time.sleep(1)
-        self.rcs.mode = 'default' # Set the mode to default (aka idle state)
-        time.sleep(1)      
-        self.rcs.amplifier = 'Simulated Amplifier', 'LA-05490-0200' #'Simulated Amplifier' LiveAmp'
-        subject_tag = f"{subject_id}_{experiment_condition}_part_{str(experiment_part)}"
-        self.rcs.open(expName = 'PsiloLearn', participant = subject_tag, workspace = r'C:\Vision\Workfiles\PsiloLearn.rwksp')
-        time.sleep(2)    
+        if not self.debug:
+            # Start the connection to RCS        
+            self.rcs = brainproducts.RemoteControlServer(host='127.0.0.1', port=6700, timeout=10.0, testMode=False) 
+            self.rcs.openRecorder()
+            time.sleep(1)
+            self.rcs.mode = 'default' # Set the mode to default (aka idle state)
+            time.sleep(1)      
+            self.rcs.amplifier = 'Simulated Amplifier', 'LA-05490-0200' #'Simulated Amplifier' LiveAmp'
+            subject_tag = f"{subject_id}_{experiment_condition}_part_{str(experiment_part)}"
+            self.rcs.open(expName = 'PsiloLearn', participant = subject_tag, workspace = r'C:\Vision\Workfiles\PsiloLearn.rwksp')
+            time.sleep(2)    
         
-    def eeg_start_recording(self):        
-        # Set the RCS to recording 
-        self.rcs.mode = 'monitor'
-        self.rcs.startRecording()
-        time.sleep(2)
+    def eeg_start_recording(self):   
+        if not self.debug:     
+            # Set the RCS to recording 
+            self.rcs.mode = 'monitor'
+            self.rcs.startRecording()
+            time.sleep(2)
      
     def eeg_stop_recording(self):
-        # End recording
-        self.rcs.stopRecording()
-        self.rcs.mode = 'default'  
-        time.sleep(1)
+        if not self.debug:
+            # End recording
+            self.rcs.stopRecording()
+            self.rcs.mode = 'default'  
+            time.sleep(1)
     
     def eeg_pause_recording(self):
-        # Pause recording
-        self.rcs.pauseRecording()
-        time.sleep(2)
+        if not self.debug:
+            # Pause recording
+            self.rcs.pauseRecording()
+            time.sleep(2)
     
     def eeg_resume_recording(self):
-        # Resume recording
-        self.rcs.resumeRecording()
-        time.sleep(1)
+        if not self.debug:
+            # Resume recording
+            self.rcs.resumeRecording()
+            time.sleep(1)
 
     def eeg_send_marker(self, text, annot_type = 'ANNOT'):
-        # Write annotation
-        if self.rcs.mode != 'monitor':
-            self.rcs.mode = 'monitor'
-        self.rcs.sendAnnotation(text, annot_type)        
-        
+        if not self.debug:
+            # Write annotation
+            if self.rcs.mode != 'monitor':
+                self.rcs.mode = 'monitor'
+            self.rcs.sendAnnotation(text, annot_type)            
 
 class MonetaryIncentiveDelayTask:
     """
@@ -66,9 +72,9 @@ class MonetaryIncentiveDelayTask:
         result_time (float): Time for the result to be shown in seconds.
         iti_time (float): Inter-trial interval in seconds.
     """
-        
+            
     def __init__(self, subject_id, experiment_condition, experiment_part):     
-        # A value of -1 fixes seed for debug and replication purposes
+        # A value of -1 fixes seed for debug and replication purposes        
         seed_value = 100
         if (seed_value > 0):            
             random.seed(seed_value)        
@@ -220,7 +226,7 @@ class MonetaryIncentiveDelayTask:
               
             # Refresh learning
             self.eeg_interface.eeg_send_marker('refresh_learning_trials_start') # EEG marker
-            for i in range(self.refresh_trials):
+            for i in range(len(self.refresh_trials)):
                 self.run_trial('refresh', i+1, self.refresh_trials[i]) # Pass the estimated reward of each trial as a parameter            
             self.eeg_interface.eeg_send_marker('refresh_learning_trials_end') # EEG marker                    
                       
