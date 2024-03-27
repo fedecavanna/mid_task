@@ -116,7 +116,7 @@ class MonetaryIncentiveDelayTask:
             self.reverse_trial = metadata[4]            
                     
         # Define visual variables:
-        self.win = visual.Window(fullscr=False, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
+        self.win = visual.Window(fullscr=True, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
         self.win_eeg_markers = visual.Window(size=(800, 600), color='black', units='pix') # eeg markers window        
         self.clock = core.Clock() # clock for timing the markers
         self.fixation_cross = visual.TextStim(self.win, text='+', color='black', height=0.2)
@@ -187,7 +187,7 @@ class MonetaryIncentiveDelayTask:
     
     def show_text(self, text, timeout=0):
         instruction_text = text
-        instructions = visual.TextStim(self.win, text=instruction_text, color='black', height=0.05, wrapWidth=1.7, alignText='left')
+        instructions = visual.TextStim(self.win, text=instruction_text, color='black', height=0.07, wrapWidth=1.7, alignText='left')
         instructions.draw()
         self.win.flip()
         if timeout > 0:
@@ -252,7 +252,7 @@ class MonetaryIncentiveDelayTask:
                             '   * Aparecerán tres cofres en pantalla. Cada uno tiene una probabilidad de recompensa diferente.\n\n'
                             '   * Elegí uno presionando alguna de las teclas: izquierda, abajo o derecha.\n\n'              
                             '   * Te preguntaremos cuán seguro estás de que tu elección es correcta.\n\n'                                 
-                            '   * Finalmente te mostraremos el resultado (+1, -1).\n\n'                                               
+                            '   * Finalmente te mostraremos el resultado (+$10, -$10).\n\n'                                               
                             '   * ¡El objetivo de la tarea es obtener la mayor cantidad de monedas posibles!\n\n\n\n'                      
                             'Presiona cualquier tecla para comenzar una ronda de prueba.')              
             
@@ -291,9 +291,9 @@ class MonetaryIncentiveDelayTask:
         # Handle the counter for the total gain-loss result:
         def calc_result(self, hit): 
             # Get the last count
-            n = int(self.trial_data[-1][6]) if len(self.trial_data) > 0 else 0
+            n = int(self.trial_data[-1][8]) if len(self.trial_data) > 0 else 0
             # Evaluate whether to add or subtract and return
-            res = n+1 if hit == 1 else n-1 
+            res = n+10 if hit == 1 else n-10 
             return res
         
         self.eeg_interface.eeg_send_marker('trial_start') # EEG marker
@@ -326,7 +326,7 @@ class MonetaryIncentiveDelayTask:
 
         # Check if they hit the box               
         hit = trial_reward[selected_chest]
-        result_text = '+1' if hit else '-1'
+        result_text = '+$10' if hit else '-$10'
 
         ## RESULTS BLOCK
         # Create the fixation cross (pre results)
@@ -338,7 +338,7 @@ class MonetaryIncentiveDelayTask:
 
         # Show feedback
         color = 'red'
-        if result_text == '+1':
+        if result_text == '+$10':
             color = 'green'
         feedback = visual.TextStim(self.win, text=result_text, color=color, height=0.15, bold=True)
         feedback.draw()
@@ -346,7 +346,7 @@ class MonetaryIncentiveDelayTask:
         self.win.flip()
         core.wait(result_time)
 
-        # Ask for the confidence level
+        # Ask for the confidence level00
         self.draw_confidence_scale()
         self.win.flip()  
         start_time = core.getTime()
@@ -365,12 +365,12 @@ class MonetaryIncentiveDelayTask:
                     # Break the loop
                     on_selection = False   
 
-        # Accumulate the result
+        # Accumulate the result 
         result = calc_result(self, hit)
         streak = self.trial_data[-1][7] + 1 if len(self.trial_data) > 0 and bool(hit) else hit 
         self.trial_data.append([cond, trial_n, trial_reward, chest_latency, selected_chest, confidence_latency, selected_confidence, hit, result, streak])
                        
-        self.eeg_interface.eeg_send_marker('trial_end') # EEG marker
+        self.eeg_interface.eeg_send_marker('trial_end') # EEG marker1
         
         ## ITI BLOCK
         # Clear the screen 
@@ -384,33 +384,60 @@ class MonetaryIncentiveDelayTask:
             chest = visual.ImageStim(self.win, image=image, size=0.3)
             chest.pos = ((i - 1) * 0.6, 0)
             chests.append(chest)
+            
+        # Create the arrow images
+        arrows = []
+        arrow_left = visual.ImageStim(self.win, image='assets/key_left.png')
+        arrow_left.pos = (-0.6, -0.3)
+        arrows.append(arrow_left)
+
+        arrow_down = visual.ImageStim(self.win, image='assets/key_down.png')
+        arrow_down.pos = (0, -0.3)
+        arrows.append(arrow_down)
+
+        arrow_right = visual.ImageStim(self.win, image='assets/key_right.png')
+        arrow_right.pos = (0.6, -0.3)
+        arrows.append(arrow_right)
+
+        # Draw the chests
         for chest in chests:
             chest.draw()
+        # Draw the arrows
+        for arrow in arrows:
+            arrow.draw()
 
     def draw_confidence_scale(self, current_selection = -1):
        # Define confidence levels and corresponding colors
         levels = ['Completa', 'Bastante', 'Poco', 'Nada']
         # colors = {levels[0]: 'limegreen', levels[1]: 'olivedrab', levels[2]: 'olive', levels[3]: 'tomato'}
         # Create TextStim for the instruction
-        instruction_text = '¿Cuánta confianza tenías en tu elección?'	
-        instructions = visual.TextStim(self.win, text=instruction_text, color='black', height=0.08, wrapWidth=1.7)
+        instruction_text = '¿Cuánta confianza tenías en el resultado?'	
+        instructions = visual.TextStim(self.win, text=instruction_text, color='black', height=0.07, wrapWidth=1.7)
         instructions.pos = (0, 0.4)        
         # Shuffle the order of confidence levels
         # random.shuffle(levels)         
         confidence_stims = []
+        confidence_images = []
         initial_x = -0.4 * (len(levels) - 1) / 2 # Center the scale
         for i, level in enumerate(levels):
             # If redrawing, check if the current level is selected
             if i > -1:
                 selected = True if i == current_selection else False        
 
+            # Draw the confidence levels
             confidence_stim = visual.TextStim(self.win, text=level, color='black', height=0.1, bold=selected)        
             confidence_stim.pos = (initial_x + i * 0.4, 0)
             confidence_stims.append(confidence_stim)
+            # Draw the confidence images
+            image = visual.ImageStim(self.win, image=f'assets/key_{i + 1}.png')
+            image.pos = (initial_x + i * 0.4, -0.3)
+            confidence_images.append(image)            
         # Draw the instruction and confidence levels
         instructions.draw()            
         for stim in confidence_stims:
             stim.draw()
+        for image in confidence_images:
+            image.draw()
 
     def save_metadata(self, data):
         # Create the folder if it doesn't exist
