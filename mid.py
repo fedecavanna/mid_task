@@ -247,23 +247,28 @@ class MonetaryIncentiveDelayTask:
         self.eeg_interface.eeg_connect(self.subject_id, self.experiment_condition, self.experiment_part)              
          
         if (self.experiment_part == 1):
-            self.show_text('¡Bienvenidx! Por favor leé con atención.\n\n\n\n'
-                            'La tarea que estás por realizar consta de varios ensayos como el siguiente:\n\n'
-                            '   * Aparecerán tres cofres en pantalla. Cada uno tiene una probabilidad de recompensa diferente.\n\n'
-                            '   * Elegí uno presionando alguna de las teclas: izquierda, abajo o derecha.\n\n'              
-                            '   * Te preguntaremos cuán seguro estás de que tu elección es correcta.\n\n'                                 
-                            '   * Finalmente te mostraremos el resultado (+$10, -$10).\n\n'                                               
-                            '   * ¡El objetivo de la tarea es obtener la mayor cantidad de monedas posibles!\n\n\n\n'                      
-                            'Presiona cualquier tecla para comenzar una ronda de prueba.')              
+            self.show_text('¡Bienvenidx!\n\n'
+                        'El objetivo del juego es descubrir cuál de los tres cofres es el Cofre Generoso.\n\n'
+                        'En cada ensayo:\n'
+                        ' - Aparecerán tres cofres en pantalla\n'
+                        ' - Cada cofre contiene fichas que pueden darte dinero o quitártelo\n'
+                        ' - Los cofres tienen diferentes probabilidades de hacerte ganar o perder\n'
+                        ' - Por ejemplo, un cofre puede tener en su interior 40% de fichas ganadoras y 60% de fichas perdedoras.\n\n'                        
+                        'Deberás seguir estos pasos:\n'
+                        ' 1. Elegir un cofre presionando la tecla correspondiente\n'
+                        ' 2. Indicar cuán seguro estás de que ese cofre te dará plata\n'
+                        ' 3. Se te mostrará el resultado: +$10 o -$10\n\n'
+                        'Recordá que tu objetivo es descubrir el cofre con mayor probabilidad de ganar, para llevarte la mayor cantidad de dinero.\n\n'
+                        'Presiona cualquier tecla para comenzar una ronda de prueba.')    
             
             # Test trials
             self.run_test_trials() 
 
             self.show_text('¡Lo hiciste perfecto! Unas últimas aclaraciones:\n\n\n\n'
-                            '   * Luego de la elección del cofre, mantené la vista en la cruz de fijación.\n\n'
-                            '   * Se registrará la señal de EEG durante todo el experimento, por lo cual evitá moverte.\n\n'
-                            '   * Evitá pestañear, a no ser que te encuentres en la pantalla de los cofres.".\n\n'
-                            '   * Si tenés alguna duda podés preguntarnos ahora ya que durante la tarea no habrá interacción con los investigadores.\n\n\n\n'                        
+                            ' - Luego de la elección del cofre, mantené la vista fija en la cruz hasta ver el resultado.\n\n'
+                            ' - Se registrará la señal de EEG durante todo el experimento, por lo cual evitá moverte.\n\n'
+                            ' - Evitá pestañear, a no ser que te encuentres en la pantalla de los cofres.\n\n'
+                            ' - Si tenés alguna duda podés preguntarnos ahora ya que durante la tarea no habrá interacción con los investigadores.\n\n\n\n'                        
                             'Ahora si, cuando estés listx presiona cualquier tecla para comenzar :)')                  
             
             # Learning trials
@@ -272,7 +277,16 @@ class MonetaryIncentiveDelayTask:
             self.show_text('¡Listo por ahora! \n\n'
                         'Por favor contactate con el investigador a cargo.', 10)                 
         
-        elif (self.experiment_part == 2):                   
+        elif (self.experiment_part == 2):        
+            self.show_text('Bienvenidx nuevamente.\n\n\n\n'
+                           'Vamos a continuar el juego en el punto lo dejaste.\n\n'
+                           'Por favor, recordá:\n\n'
+                            ' - Luego de la elección, mantené la vista fija en la cruz hasta ver el resultado.\n\n'
+                            ' - Evitá moverte ya que afecta la señal que estamos midiendo.\n\n'
+                            ' - Evitá pestañear, a no ser que te encuentres en la pantalla de los cofres.\n\n'
+                            ' - Si tenés alguna duda podés preguntarnos ahora ya que durante la tarea no habrá interacción con los investigadores.\n\n\n\n'
+                            'Nuevamente, cuando estés listx presiona cualquier tecla para comenzar :)')              
+                                           
             # Refresh trials + Reverse learning trials:
             self.run_reverse_learning_trials()
 
@@ -281,7 +295,7 @@ class MonetaryIncentiveDelayTask:
         
     def run_trial(self, cond, trial_n, trial_reward):
         # Each trial is performed as follows
-        # [fixation_stimuli + stimuli] [gap] [fixation_result + result] [confidence] [iti]
+        # [fixation_stimuli + stimuli] [confidence] [fixation_result + result] [iti]
         
         fixation_time = 1.5 # Time for the fixation cross. 
         soa_time = random.uniform(1, 4) # Time before the result is shown
@@ -320,37 +334,13 @@ class MonetaryIncentiveDelayTask:
                 self.eeg_interface.eeg_send_marker('key_pressed_chest') # EEG marker
                 break            
              
-        ## GAP BLOCK
         # Clear the screen 
-        self.win.flip()
-
-        # Check if they hit the box               
-        hit = trial_reward[selected_chest]
-        result_text = '+$10' if hit else '-$10'
-
-        ## RESULTS BLOCK
-        # Create the fixation cross (pre results)
-        self.fixation_cross.draw()
-        self.win.callOnFlip(self.eeg_interface.eeg_send_marker, 'result_fixation_shown') # EEG marker
-        self.win.flip()
+        # self.win.flip()
         
-        core.wait(soa_time) 
-
-        # Show feedback
-        color = 'red'
-        if result_text == '+$10':
-            color = 'green'
-        feedback = visual.TextStim(self.win, text=result_text, color=color, height=0.15, bold=True)
-        feedback.draw()
-        self.win.callOnFlip(self.eeg_interface.eeg_send_marker, 'feedback_shown') # EEG marker
-        self.win.flip()
-        core.wait(result_time)
-
-        # Ask for the confidence level00
+        # Ask for the confidence level
         self.draw_confidence_scale()
         self.win.flip()  
         start_time = core.getTime()
-        current_value = None
         on_selection = True
         while on_selection:
             core.wait(0.1)
@@ -364,6 +354,32 @@ class MonetaryIncentiveDelayTask:
                     self.eeg_interface.eeg_send_marker('key_confidence_selected') # EEG marker
                     # Break the loop
                     on_selection = False   
+
+        # Clear the screen 
+        # self.win.flip()
+
+        ## RESULTS BLOCK
+        # Check if they hit the box               
+        hit = trial_reward[selected_chest]
+        result_text = '+$10' if hit else '-$10'        
+        
+        # Create the fixation cross (pre results)
+        self.fixation_cross.draw()
+        self.win.callOnFlip(self.eeg_interface.eeg_send_marker, 'result_fixation_shown') # EEG marker
+        self.win.flip()
+        
+        # Variable SOA
+        core.wait(soa_time) 
+
+        # Show feedback
+        color = 'red'
+        if result_text == '+$10':
+            color = 'green'
+        feedback = visual.TextStim(self.win, text=result_text, color=color, height=0.15, bold=True)
+        feedback.draw()
+        self.win.callOnFlip(self.eeg_interface.eeg_send_marker, 'feedback_shown') # EEG marker
+        self.win.flip()
+        core.wait(result_time)
 
         # Accumulate the result 
         result = calc_result(self, hit)
@@ -406,26 +422,20 @@ class MonetaryIncentiveDelayTask:
         for arrow in arrows:
             arrow.draw()
 
-    def draw_confidence_scale(self, current_selection = -1):
-       # Define confidence levels and corresponding colors
-        levels = ['Completa', 'Bastante', 'Poco', 'Nada']
-        # colors = {levels[0]: 'limegreen', levels[1]: 'olivedrab', levels[2]: 'olive', levels[3]: 'tomato'}
-        # Create TextStim for the instruction
-        instruction_text = '¿Cuánta confianza tenías en el resultado?'	
-        instructions = visual.TextStim(self.win, text=instruction_text, color='black', height=0.07, wrapWidth=1.7)
+    def draw_confidence_scale(self):
+        # Define confidence levels         
+        confidence_text = f'¿Cuán seguro estás de que vas a ganar?'
+        confidence_levels = ['Bastante', 'Algo', 'Poco', 'Nada']
+        instructions = visual.TextStim(self.win, text=confidence_text, color='black', height=0.08, wrapWidth=1.7)
         instructions.pos = (0, 0.4)        
-        # Shuffle the order of confidence levels
-        # random.shuffle(levels)         
+
+        # Draw confidence stims and images
         confidence_stims = []
         confidence_images = []
-        initial_x = -0.4 * (len(levels) - 1) / 2 # Center the scale
-        for i, level in enumerate(levels):
-            # If redrawing, check if the current level is selected
-            if i > -1:
-                selected = True if i == current_selection else False        
-
+        initial_x = -0.4 * (len(confidence_levels) - 1) / 2 # Center the scale
+        for i, level in enumerate(confidence_levels):
             # Draw the confidence levels
-            confidence_stim = visual.TextStim(self.win, text=level, color='black', height=0.1, bold=selected)        
+            confidence_stim = visual.TextStim(self.win, text=level, color='black', height=0.08)
             confidence_stim.pos = (initial_x + i * 0.4, 0)
             confidence_stims.append(confidence_stim)
             # Draw the confidence images
