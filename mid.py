@@ -313,13 +313,11 @@ class MonetaryIncentiveDelayTask:
             return res
                         
         self.eeg_interface.eeg_send_marker('trial_start') # EEG marker
-        
-        ## STIMULI BLOCK
-        # Create the fixation cross (pre stimuli)
+                
         # Fixation cross red test
         # self.red_background = visual.Rect(self.win, width=self.win.size[0], height=self.win.size[1], fillColor='red', lineColor=None)
-        # self.red_background.draw()        
-        
+        # self.red_background.draw()  
+              
         self.fixation_cross.draw()        
         self.win.callOnFlip(self.eeg_interface.eeg_send_marker, 'stimuli_fixation_shown') # EEG marker   
         self.win.flip() 
@@ -329,40 +327,27 @@ class MonetaryIncentiveDelayTask:
         self.draw_chests()
         self.win.flip()
         start_time = core.getTime()
-        while True:
-            keys = event.waitKeys(keyList=['left', 'down', 'right', 'escape'])
-            if keys[0] == 'escape':                
-                self.eeg_interface.eeg_send_marker('experiment_halted') # EEG marker
-                core.quit()            
-            elif keys[0] in ['left', 'down', 'right']:
-                selected_chest = ['left', 'down', 'right'].index(keys[0]) # returns 0, 1, 2
-                chest_latency = int((core.getTime() - start_time) * 1000)                
-                self.eeg_interface.eeg_send_marker('key_pressed_chest') # EEG marker
-                break            
-             
-        # Clear the screen 
-        # self.win.flip()
+        keys = event.waitKeys(keyList=['left', 'down', 'right', 'escape'])
+        if keys[0] == 'escape':                
+            self.eeg_interface.eeg_send_marker('experiment_halted') # EEG marker
+            core.quit()            
+        elif keys[0] in ['left', 'down', 'right']:
+            selected_chest = ['left', 'down', 'right'].index(keys[0]) # returns 0, 1, 2
+            chest_latency = int((core.getTime() - start_time) * 1000)                
+            self.eeg_interface.eeg_send_marker('key_pressed_chest') # EEG marker         
         
         # Ask for the confidence level
         self.draw_confidence_scale()
         self.win.flip()  
         start_time = core.getTime()
-        on_selection = True
-        while on_selection:
-            core.wait(0.1)
-            keys = event.waitKeys(keyList=['1', '2', '3', '4', 'escape'])
-            if keys[0] == 'escape':                                
-                self.eeg_interface.eeg_send_marker('experiment_halted') # EEG marker
-                core.quit()    
-            elif keys[0] in ['1', '2', '3', '4']:       
-                    selected_confidence = keys[0]
-                    confidence_latency = int((core.getTime() - start_time) * 1000)                                    
-                    self.eeg_interface.eeg_send_marker('key_confidence_selected') # EEG marker
-                    # Break the loop
-                    on_selection = False   
-
-        # Clear the screen 
-        # self.win.flip()
+        keys = event.waitKeys(keyList=['1', '2', '3', '4', 'escape'])
+        if keys[0] == 'escape':                                
+            self.eeg_interface.eeg_send_marker('experiment_halted') # EEG marker
+            core.quit()    
+        elif keys[0] in ['1', '2', '3', '4']:       
+                selected_confidence = keys[0]
+                confidence_latency = int((core.getTime() - start_time) * 1000)                                    
+                self.eeg_interface.eeg_send_marker('key_confidence_selected') # EEG marker
 
         ## RESULTS BLOCK
         # Check if they hit the box               
@@ -509,7 +494,7 @@ class MonetaryIncentiveDelayTask:
 
 if __name__ == "__main__": 
     # Request any relevant information needed:
-    dlg = gui.Dlg(title="Información")
+    dlg = gui.Dlg(title="Información (MID)")
     dlg.addText("Por favor, ingresa ID, condición y parte del sujeto:")
     dlg.addField("Sujeto: ", "s")
     dlg.addField('Condición:', choices=["A", "B"])
