@@ -92,8 +92,8 @@ class MonetaryIncentiveDelayTask:
         self.experiment_part = int(experiment_part)        
         
         # Number of trials for each condition:
-        self.n_trials = 10
-        refresh_n_trials = 5
+        self.n_trials = 40
+        refresh_n_trials = 10
          
         if (experiment_part == 1):       
             # Define the reward for the test chests:        
@@ -314,10 +314,11 @@ class MonetaryIncentiveDelayTask:
                         
         self.eeg_interface.eeg_send_marker('trial_start') # EEG marker
                 
+        """
         # Fixation cross red test
-        # self.red_background = visual.Rect(self.win, width=self.win.size[0], height=self.win.size[1], fillColor='red', lineColor=None)
-        # self.red_background.draw()  
-              
+        self.red_background = visual.Rect(self.win, width=self.win.size[0], height=self.win.size[1], fillColor='red', lineColor=None)
+        self.red_background.draw()                
+        """
         self.fixation_cross.draw()        
         self.win.callOnFlip(self.eeg_interface.eeg_send_marker, 'stimuli_fixation_shown') # EEG marker   
         self.win.flip() 
@@ -364,7 +365,7 @@ class MonetaryIncentiveDelayTask:
 
         # Show feedback
         color = 'red'
-        background_color = '#f5e9e7'
+        background_color = '#ffdbdb'
         if result_text == '+$10':
             color = 'green'
             background_color = '#d3ffd9'
@@ -413,11 +414,13 @@ class MonetaryIncentiveDelayTask:
         # Draw the chests
         for i, chest in enumerate(chests):
             chest.draw()
+            # Draw the accumulated result over the middle chest
             if i == 1:
                 result = '$0'
                 if self.trial_data and len(self.trial_data) > 0:
                     result = '$' + str(self.trial_data[-1][8])
-                text = visual.TextStim(self.win, text=result, color='black', height=0.08, pos=chest.pos)
+                text = visual.TextStim(self.win, text=result, color='black', height=0.08)
+                text.pos = (0, 0.75)
                 text.draw()            
             
         # Draw the arrows
