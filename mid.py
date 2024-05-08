@@ -76,7 +76,7 @@ class MonetaryIncentiveDelayTask:
             
     def __init__(self, subject_id, experiment_condition, experiment_part):     
         # A value of -1 fixes seed for debug and replication purposes        
-        seed_value = 100
+        seed_value = int(time.time())
         if (seed_value > 0):            
             random.seed(seed_value)        
         
@@ -92,7 +92,7 @@ class MonetaryIncentiveDelayTask:
         self.experiment_part = int(experiment_part)        
         
         # Number of trials for each condition:
-        self.n_trials = 40
+        self.n_trials = 60
         refresh_n_trials = 10
          
         if (experiment_part == 1):       
