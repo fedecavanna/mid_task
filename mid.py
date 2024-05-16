@@ -12,40 +12,40 @@ class EEGInterface:
             # Start the connection to RCS        
             self.rcs = brainproducts.RemoteControlServer(host='127.0.0.1', port=6700, timeout=10.0, testMode=False) 
             self.rcs.openRecorder()
-            time.sleep(1)
+            core.wait(1)
             self.rcs.mode = 'default' # Set the mode to default (aka idle state)
-            time.sleep(1)      
+            core.wait(1)      
             # self.rcs.amplifier = 'Simulated Amplifier', 'LA-05490-0200'
             self.rcs.amplifier = 'BrainAmp Family'
             subject_tag = f"{subject_id}_{experiment_condition}_part_{str(experiment_part)}"
             self.rcs.open(expName = 'PsiloLearn', participant = subject_tag, workspace = r'C:\Vision\Workfiles\PsiloLearn.rwksp')
-            time.sleep(2)    
+            core.wait(2)    
         
     def eeg_start_recording(self):   
         if not self.debug:     
             # Set the RCS to recording 
             self.rcs.mode = 'monitor'    
             self.rcs.startRecording()
-            time.sleep(2)
+            core.wait(2)
      
     def eeg_stop_recording(self):
         if not self.debug:
             # End recording
             self.rcs.stopRecording()
             self.rcs.mode = 'default'  
-            time.sleep(1)
+            core.wait(1)
     
     def eeg_pause_recording(self):
         if not self.debug:
             # Pause recording
             self.rcs.pauseRecording()
-            time.sleep(2)
+            core.wait(2)
     
     def eeg_resume_recording(self):
         if not self.debug:
             # Resume recording
             self.rcs.resumeRecording()
-            time.sleep(1)
+            core.wait(1)
 
     def eeg_send_marker(self, text, annot_type = 'ANNOT'):
         if not self.debug:
@@ -92,7 +92,7 @@ class MonetaryIncentiveDelayTask:
         self.experiment_part = int(experiment_part)        
         
         # Number of trials for each condition:
-        self.n_trials = 60
+        self.n_trials = 80
         refresh_n_trials = 10
          
         if (experiment_part == 1):       
