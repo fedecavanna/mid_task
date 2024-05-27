@@ -85,7 +85,7 @@ class MonetaryIncentiveDelayTask:
         
         # Define experiment variables:
         self.trial_data = []
-        self.metadata_file = f"results/{subject_id}/{subject_id}_metadata.txt"
+        self.metadata_file = f"results/{subject_id}/{subject_id}_metadata_part_{(experiment_condition)}.txt"
         self.results_file = f"results/{subject_id}/{subject_id}_{experiment_condition}_part_{str(experiment_part)}.txt"
         self.subject_id = subject_id
         self.experiment_condition = experiment_condition
@@ -118,7 +118,7 @@ class MonetaryIncentiveDelayTask:
             self.reverse_trial = metadata[4]            
                     
         # Define visual variables:
-        self.win = visual.Window(fullscr=True, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
+        self.win = visual.Window(fullscr=False, allowGUI=False, color='gainsboro', monitor='2', screen=1) # experimental window
         self.win_eeg_markers = visual.Window(size=(800, 600), color='black', units='pix') # eeg markers window        
         self.clock = core.Clock() # clock for timing the markers
         self.fixation_cross = visual.TextStim(self.win, text='+', color='black', height=0.2)
