@@ -460,7 +460,7 @@ class MonetaryIncentiveDelayTask:
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
         # Save the results:
-        with open(self.metadata_file, 'a') as f:
+        with open(self.metadata_file, 'x') as f:
             learn_list = [list(sublist) for sublist in data[1]] 
             reverse_list = [list(sublist) for sublist in data[4]] 
             f.write("learn_reward;learn_trials;refresh_trials;reverse_reward;reverse_trials\n")
